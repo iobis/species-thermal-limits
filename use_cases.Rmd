@@ -1,0 +1,151 @@
+---
+title: "Use cases - Thermal limits"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(arrow)
+library(terra)
+knitr::opts_chunk$set(echo = FALSE)
+species_names <- c(
+  "Cephalopholis argus",
+  "Dascyllus aruanus",
+  "Thalassoma lucasanum",
+  "Echinometra lucunter",
+  "Uca maracoani"
+)
+
+# Load OBIS full export to see number of records for each species
+obis_ds <- open_dataset("~/Research/mpa_europe/mpaeu_shared/obis_20231025.parquet")
+
+obis_filt <- obis_ds %>%
+  filter(species %in% species_names) %>%
+  select(AphiaID, species,
+         occurrenceID, datasetID,
+         minimumDepthInMeters, maximumDepthInMeters,
+         decimalLongitude, decimalLatitude,
+         eventDate) %>%
+  collect()
+
+obis_filt$unID <- 1:nrow(obis_filt)
+
+# Load bio-oracle
+bio_or <- rast("~/Research/mpa_europe/mpaeu_sdm/data/env/current/thetao_baseline_depthsurf_mean.tif")
+
+sst_vals <- terra::extract(bio_or, obis_filt[,c("decimalLongitude", "decimalLatitude")], ID = F)
+
+which_na <- which(is.na(sst_vals[,1]))
+cell_na <- cellFromXY(bio_or, as.data.frame(obis_filt[which_na, c("decimalLongitude", "decimalLatitude")]))
+adj_cells <- adjacent(bio_or, cell_na, directions = "queen")
+adj_vals <- unname(unlist(apply(adj_cells, 1, function(x){
+  zv <- mean(terra::extract(bio_or, x)[,1], na.rm = T)
+  if (is.null(zv) | length(zv) < 1) {
+    NA
+  } else {
+    zv
+  }
+})))
+sst_vals[which_na,1] <- adj_vals
+
+obis_filt <- cbind(obis_filt, sst_biooracle = sst_vals[,1])
+```
+
+## Fishes
+
+### _Cephalopholis argus_
+
+Estimated thermal optima: 28    
+Estimated thermal upper limit: 29.5    
+Experimental thermal optima: NA   
+Experimental thermal upper limit: NA    
+
+```{r}
+sp <- "Cephalopholis argus"
+obis_filt %>%
+  filter(species == sp) %>%
+  filter(!is.na(sst_biooracle)) %>%
+  ggplot() +
+  geom_density(aes(x = sst_biooracle), fill = "#BCCBD2", color = "#266E92") +
+  ggtitle(sp)+xlab("SST (°C)") +
+  theme_light()
+```
+
+### _Dascyllus aruanus_
+
+Estimated thermal optima: 25.6     
+Estimated thermal upper limit: 29      
+Experimental thermal optima: NA    
+Experimental thermal upper limit: 40.5      
+
+```{r}
+sp <- "Dascyllus aruanus"
+obis_filt %>%
+  filter(species == sp) %>%
+  filter(!is.na(sst_biooracle)) %>%
+  ggplot() +
+  geom_density(aes(x = sst_biooracle), fill = "#BCCBD2", color = "#266E92") +
+  ggtitle(sp)+xlab("SST (°C)") +
+  theme_light()
+```
+
+### _Thalassoma lucasanum_
+
+Estimated thermal optima: 28.8       
+Estimated thermal upper limit: 29.2      
+Experimental thermal optima: NA      
+Experimental thermal upper limit: 36      
+
+```{r}
+sp <- "Thalassoma lucasanum"
+obis_filt %>%
+  filter(species == sp) %>%
+  filter(!is.na(sst_biooracle)) %>%
+  ggplot() +
+  geom_density(aes(x = sst_biooracle), fill = "#BCCBD2", color = "#266E92") +
+  ggtitle(sp)+xlab("SST (°C)") +
+  theme_light()
+```
+
+
+
+## Invertebrates
+
+### _Echinometra lucunter_
+
+Estimated thermal optima: NA    
+Estimated thermal upper limit: NA    
+Experimental thermal optima: 29.4    
+Experimental thermal upper limit: 36    
+
+
+```{r}
+sp <- "Echinometra lucunter"
+obis_filt %>%
+  filter(species == sp) %>%
+  filter(!is.na(sst_biooracle)) %>%
+  ggplot() +
+  geom_density(aes(x = sst_biooracle), fill = "#BCCBD2", color = "#266E92") +
+  ggtitle(sp)+xlab("SST (°C)") +
+  theme_light()
+```
+
+### _Uca maracoani_
+
+Estimated thermal optima: NA    
+Estimated thermal upper limit: NA    
+Experimental thermal optima: NA    
+Experimental thermal upper limit: 38.6     
+
+```{r}
+sp <- "Uca maracoani"
+obis_filt %>%
+  filter(species == sp) %>%
+  filter(!is.na(sst_biooracle)) %>%
+  ggplot() +
+  geom_density(aes(x = sst_biooracle), fill = "#BCCBD2", color = "#266E92") +
+  ggtitle(sp)+xlab("SST (°C)") +
+  theme_light()
+```
+
