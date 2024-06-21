@@ -57,32 +57,36 @@ sim_species <- function(x_species = 29, xhat_species = 2,
   
 }
 
-
+# Example
 # Our hypothetical species is tropical, with its optimum on 29 degrees.
 # We add a SD of 2, such that 95% of the species niche are between
 # 25 degrees and 33 degrees (a relatively narrow niche)
-sp_mean <- 29
-sp_sd <- 2
+
+# sp_mean <- 29
+# sp_sd <- 2
 
 # For the probability of sampling the species we are leaving the default = 0.5
 # We assume that the species is never found in places where it does not occur
 # (i.e, we are not assuming any false positives)
-sim_results <- sim_species(x_species = sp_mean,
-                           xhat_species = sp_sd,
-                           x_site = 15, xhat_site = 10)
+
+# sim_results <- sim_species(x_species = sp_mean,
+#                            xhat_species = sp_sd,
+#                            x_site = 15, xhat_site = 10)
 
 # Table true occurrence vs sampled
-table(true = sim_results$true_occurrence,
-      sampled = sim_results$sampled_occurrence)
+
+# table(true = sim_results$true_occurrence,
+#       sampled = sim_results$sampled_occurrence)
 
 # Plot
-plot(x = sim_results$surface, y = sim_results$surface_suitability,
-     col = c("#3B7B9A55", "#EFCC3055")[as.factor(sim_results$true_occurrence)],
-     pch = 20, cex = 2, xlab = "SST", ylab = "Suitability",
-     xlim = c(3, 35))
-points(x = sim_results$surface, y = sim_results$surface_suitability,
-     col = c("#3B7B9A55", "#EFCC3055")[as.factor(sim_results$sampled_occurrence)],
-     pch = 1, cex = 3)
-abline(v = max(sim_results$surface), col = "black")
-abline(v = sp_mean, lty = 2, col = "black")
-abline(v = c(sp_mean - 2*sp_sd, sp_mean + 2*sp_sd), lty = 2, col = "grey80")
+
+# plot(x = sim_results$surface, y = sim_results$surface_suitability,
+#      col = c("#3B7B9A55", "#EFCC3055")[as.factor(sim_results$true_occurrence)],
+#      pch = 20, cex = 2, xlab = "SST", ylab = "Suitability",
+#      xlim = c(3, 35))
+# points(x = sim_results$surface, y = sim_results$surface_suitability,
+#      col = c("#3B7B9A55", "#EFCC3055")[as.factor(sim_results$sampled_occurrence)],
+#      pch = 1, cex = 3)
+# abline(v = max(sim_results$surface), col = "black")
+# abline(v = sp_mean, lty = 2, col = "black")
+# abline(v = c(sp_mean - 2*sp_sd, sp_mean + 2*sp_sd), lty = 2, col = "grey80")
