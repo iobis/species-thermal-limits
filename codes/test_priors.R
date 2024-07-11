@@ -11,8 +11,8 @@ sim_out <- list()
 
 # Set percentages of absences
 priors <- expand.grid(
-  prior_m = seq(10, 30, by = 5),
-  prior_sd = seq(2, 5, by = 1)
+  prior_m = seq(10, 30, by = 5), # 20
+  prior_sd = seq(2, 5, by = 1) # 5
 )
 
 # Make data object
