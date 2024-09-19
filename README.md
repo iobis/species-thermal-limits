@@ -21,4 +21,5 @@ Last modified in September 2024
 	1. Apply this to all OBIS data and make available in the website -> this is our main target, to support some of the projects (e.g. eDNA expeditions, PacMAN, MPA Europe)
 	2. Try other things
 		1. Models combining phylogenetic information (multiple species within the same group or from related groups)
+  		2. Other ideas? 
 	3. Publication of the method (?)
