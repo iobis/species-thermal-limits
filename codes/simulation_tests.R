@@ -5,6 +5,7 @@
 # Contact: s.principe@unesco.org
 
 set.seed(2023)
+library(dplyr)
 library(rethinking)
 source("codes/simulate_species.R")
 
@@ -23,7 +24,7 @@ cat(paste(paste("Site", seq_along(mean_site), ">>", (mean_site - 2*sd_site), "to
 n_species <- 20
 
 # Set number of cells
-n_cells <- 500
+n_cells <- 1000
 
 # Set the means for each species
 sel_x_species <- sample(15:28, n_species, replace = T)#c(29, 27, 26, 20, 15)
@@ -43,7 +44,7 @@ for (site in seq_along(mean_site)) {
             xhat_species = sel_xhat_species[sp],
             x_site = mean_site[site],
             xhat_site = sd_site[site],
-            ncells = 1000,
+            ncells = n_cells,
             site_min = -2,
             site_max = 31
         )
@@ -66,10 +67,11 @@ summaries <- simulated_datasets |>
 any(summaries$presence == 0)
 any(summaries$presence < 2)
 
+# TEST 1.1 Equal number of presences and absences
 # Make data object
 simulated_datasets$species_site <- paste(simulated_datasets$species, simulated_datasets$site)
 
-simulated_datasets <- simulated_datasets[simulated_datasets$species_site %in% unique(simulated_datasets$species_site)[20:30],]
+simulated_datasets <- simulated_datasets[simulated_datasets$species_site %in% unique(simulated_datasets$species_site)[1:10],]
 
 dat <- list(
     N = nrow(simulated_datasets),
@@ -94,6 +96,72 @@ m_sim1 <- cstan(file = "codes/model1.stan", data = dat, rstan_out = FALSE)
 prec_res <- precis(m_sim1, 2)
 prec_res$expected <- c(spp_mu, spp_sd, 0)
 
-sim_out[[z]] <- prec_res
+# Plot to check
+par(mfrow = c(1,2))
+plot(y = prec_res$mean[grepl("tmu", row.names(prec_res))],
+     x = prec_res$expected[grepl("tmu", row.names(prec_res))],
+     xlab = "Expected", ylab = "Predicted", main = "Mean")
+abline(lm(prec_res$mean[grepl("tmu", row.names(prec_res))] ~ prec_res$expected[grepl("tmu", row.names(prec_res))]))
+plot(y = prec_res$mean[grepl("tsd", row.names(prec_res))],
+     x = prec_res$expected[grepl("tsd", row.names(prec_res))],
+     xlab = "Expected", ylab = "Predicted", main = "SD")
+abline(lm(prec_res$mean[grepl("tsd", row.names(prec_res))] ~ prec_res$expected[grepl("tsd", row.names(prec_res))]))
 
-# run model
+prec_res <- as.data.frame(prec_res)
+prec_res$what <- row.names(prec_res)
+row.names(prec_res) <- NULL
+
+write.csv(prec_res, file.path("results/simulations", "t1_1_equal_number.csv"))
+
+
+# TEST 1.2 Varying number of absences
+target_n_absence <- rev(seq(0, 18, by = 2))
+results_n_absence <- lapply(target_n_absence, function(x) NULL)
+
+for (ab in seq_along(target_n_absence)) {
+    # Make data object
+    to_sample <- target_n_absence[ab]
+
+    reduced_dataset <- simulated_datasets %>%
+        group_by(species_site) %>%
+        mutate(to_keep = if_else(sampled_occurrence == 1, TRUE, FALSE)) %>%
+        filter(
+            to_keep |
+            row_number() %in% sample(which(sampled_occurrence == 0), to_sample)
+        ) %>%
+        select(-to_keep)
+
+    dat <- list(
+        N = nrow(reduced_dataset),
+        N_spp = length(unique(reduced_dataset$species_site)),
+        sid = as.integer(as.factor(reduced_dataset$species_site)),
+        sst = reduced_dataset$surface,
+        y = reduced_dataset$sampled_occurrence
+    )
+
+    spp_mu <- rep(NA, dat$N_spp)
+    spp_sd <- spp_mu
+    for (i in seq_len(dat$N_spp)) {
+        suit <- simulated_datasets$surface_suitability[dat$sid==i]
+        sst <- simulated_datasets$surface[dat$sid==i]
+        spp_mu[i] <- sst[suit == max(suit)]
+        sst_b <- simulated_datasets$surface[dat$sid==i & dat$y == 1]
+        spp_sd[i] <- sd(sst_b)
+    }
+
+    m_sim2 <- cstan(file = "codes/model1.stan", data = dat, rstan_out = FALSE)
+
+    prec_res <- precis(m_sim2, 2)
+    prec_res$expected <- c(spp_mu, spp_sd, 0)
+    prec_res <- as.data.frame(prec_res)
+    prec_res$n_absence <- to_sample
+
+    prec_res$what <- row.names(prec_res)
+    row.names(prec_res) <- NULL
+
+    results_n_absence[[ab]] <- prec_res
+}
+
+results_n_absence <- do.call("rbind", results_n_absence)
+
+write.csv(results_n_absence, file.path("results/simulations", "t1_2_varying_absences.csv"))

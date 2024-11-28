@@ -98,7 +98,6 @@ sim_species <- function(x_species = 29, xhat_species = 2,
     sampled_occurrence <- sampled_occurrence[sampled_occurrence_sample]
     suitability <- suitability[sampled_occurrence_sample]
     samp_surf_const <- samp_surf_const[sampled_occurrence_sample]
-
   }
   
   return(list(
