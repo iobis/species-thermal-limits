@@ -17,7 +17,7 @@ fs::dir_create("results/simulations")
 # Set environmental parameters (5 scenarios)
 mean_site <- c(15, 20)
 sd_site <- c(10, 5) # fixed SD for simplicity
-cat(paste(paste("Site", seq_along(mean_site), (mean_site - 2*sd_site), "to", (mean_site + 2*sd_site)), collapse = "\n"))
+cat(paste(paste("Site", seq_along(mean_site), ">>", (mean_site - 2*sd_site), "to", (mean_site + 2*sd_site)), collapse = "\n"))
 
 # Set the number of species
 n_species <- 20
@@ -43,6 +43,7 @@ for (site in seq_along(mean_site)) {
             xhat_species = sel_xhat_species[sp],
             x_site = mean_site[site],
             xhat_site = sd_site[site],
+            ncells = 1000,
             site_min = -2,
             site_max = 31
         )
@@ -67,6 +68,8 @@ any(summaries$presence < 2)
 
 # Make data object
 simulated_datasets$species_site <- paste(simulated_datasets$species, simulated_datasets$site)
+
+simulated_datasets <- simulated_datasets[simulated_datasets$species_site %in% unique(simulated_datasets$species_site)[20:30],]
 
 dat <- list(
     N = nrow(simulated_datasets),

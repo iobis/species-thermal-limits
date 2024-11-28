@@ -8,6 +8,10 @@
 #' @param site_max the maximum value that the site can have (use `Inf` if you want to avoid truncation)
 #' @param ncells number of cells available for the species
 #' @param samp_prob probability of sampling/finding a species where it occurs
+#' @param samp_equal if `TRUE`, the final values (i.e. samples) will be sampled to ensure equal number
+#'   of presences (1) and absences (0). Ensure a large number of ncells, so that there is enough points to
+#'   sample. Otherwise, the function will return an error.
+#' @param samp_equal_target the number of presences and absences that should be sampled when `samp_equal = T`
 #'
 #' @return a list with sampled and true occurrence
 #' @export
@@ -51,7 +55,8 @@
 sim_species <- function(x_species = 29, xhat_species = 2,
                         x_site = 28, xhat_site = 8,
                         site_min = 0, site_max = 30,
-                        ncells = 100, samp_prob = 0.5){
+                        ncells = 100, samp_prob = 0.5,
+                        samp_equal = TRUE, samp_equal_target = 20){
   
   # We start by creating the surface, i.e. the sites. We assume that the distribution
   # of the sites follow a Gaussian distribution.
@@ -75,6 +80,26 @@ sim_species <- function(x_species = 29, xhat_species = 2,
   
   # Sample the occurrence whith binomial probability, simulating a sampling campaign
   sampled_occurrence <- rbinom(length(true_occurrence), size = 1, prob = true_occurrence * samp_prob)
+
+  # If equal numbers
+  if (samp_equal) {
+    sampled_occurrence <- as.integer(sampled_occurrence)
+    freqs <- as.data.frame(table(sampled_occurrence))
+    if (nrow(freqs) == 1) stop("Only one class was generated.")
+    if (any(freqs$Freq < samp_equal_target)) {
+      stop("Not enough number of points in one or more classes. Increasing the number of cells might help.")
+    }
+    sampled_occurrence_sample <- tapply(seq_len(length(sampled_occurrence)),
+                                        as.factor(sampled_occurrence),
+                                        sample, size = samp_equal_target)
+    sampled_occurrence_sample <- unname(unlist(sampled_occurrence_sample))
+
+    true_occurrence <- true_occurrence[sampled_occurrence_sample]
+    sampled_occurrence <- sampled_occurrence[sampled_occurrence_sample]
+    suitability <- suitability[sampled_occurrence_sample]
+    samp_surf_const <- samp_surf_const[sampled_occurrence_sample]
+
+  }
   
   return(list(
     surface = samp_surf_const,
