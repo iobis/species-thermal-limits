@@ -71,7 +71,8 @@ any(summaries$presence < 2)
 # Make data object
 simulated_datasets$species_site <- paste(simulated_datasets$species, simulated_datasets$site)
 
-simulated_datasets <- simulated_datasets[simulated_datasets$species_site %in% unique(simulated_datasets$species_site)[1:10],]
+# Only work with a subset. Still to be checked.
+simulated_datasets <- simulated_datasets[simulated_datasets$species_site %in% unique(simulated_datasets$species_site)[1:5],]
 
 dat <- list(
     N = nrow(simulated_datasets),
@@ -122,14 +123,15 @@ for (ab in seq_along(target_n_absence)) {
     # Make data object
     to_sample <- target_n_absence[ab]
 
-    reduced_dataset <- simulated_datasets %>%
+    presences <- simulated_datasets %>%
+        filter(sampled_occurrence == 1)
+
+    absences <- simulated_datasets %>%
+        filter(sampled_occurrence == 0) %>%
         group_by(species_site) %>%
-        mutate(to_keep = if_else(sampled_occurrence == 1, TRUE, FALSE)) %>%
-        filter(
-            to_keep |
-            row_number() %in% sample(which(sampled_occurrence == 0), to_sample)
-        ) %>%
-        select(-to_keep)
+        slice_sample(n = to_sample)
+
+    reduced_dataset <- bind_rows(presences, absences)
 
     dat <- list(
         N = nrow(reduced_dataset),
@@ -138,16 +140,6 @@ for (ab in seq_along(target_n_absence)) {
         sst = reduced_dataset$surface,
         y = reduced_dataset$sampled_occurrence
     )
-
-    spp_mu <- rep(NA, dat$N_spp)
-    spp_sd <- spp_mu
-    for (i in seq_len(dat$N_spp)) {
-        suit <- simulated_datasets$surface_suitability[dat$sid==i]
-        sst <- simulated_datasets$surface[dat$sid==i]
-        spp_mu[i] <- sst[suit == max(suit)]
-        sst_b <- simulated_datasets$surface[dat$sid==i & dat$y == 1]
-        spp_sd[i] <- sd(sst_b)
-    }
 
     m_sim2 <- cstan(file = "codes/model1.stan", data = dat, rstan_out = FALSE)
 
@@ -163,5 +155,19 @@ for (ab in seq_along(target_n_absence)) {
 }
 
 results_n_absence <- do.call("rbind", results_n_absence)
+results_n_absence <- as.data.frame(results_n_absence)
+
+par(mfrow = c(2, ceiling(length(target_n_absence)/2)))
+mean_results <- results_n_absence[grepl("tmu", results_n_absence$what),]
+for (tp in target_n_absence) {
+    fd <- mean_results[mean_results$n_absence == tp, ]
+    mval <- ceiling(range(c(
+        mean_results$mean, mean_results$expected
+    )))
+    plot(mean ~ expected, data = fd, main = paste(tp, "absences"), col = "#0066c0",
+        xlim = mval)
+    points(prec_res$mean[grepl("tmu", prec_res$what)] ~ prec_res$expected[grepl("tmu", prec_res$what)],
+           col = "#e27f0e", pch = 20)
+}
 
 write.csv(results_n_absence, file.path("results/simulations", "t1_2_varying_absences.csv"))
