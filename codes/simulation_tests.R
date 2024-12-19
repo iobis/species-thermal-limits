@@ -10,27 +10,30 @@ library(rethinking)
 source("codes/simulate_species.R")
 
 # Create a folder to hold the results and data
-fs::dir_create("data/simulated_data")
-fs::dir_create("results/simulations")
+sim_f <- "data/simulated_data"
+res_f <- "results/simulations"
+fs::dir_create(sim_f)
+fs::dir_create(res_f)
+
 
 # TEST 1: basic occupancy model with thermal tolerance function with fixed prior
 
-# Set environmental parameters (5 scenarios)
-mean_site <- c(15, 20)
-sd_site <- c(10, 5) # fixed SD for simplicity
+# Set environmental parameters (3 scenarios)
+mean_site <- c(15, 20, 25)
+sd_site <- c(5, 5, 5) # fixed SD for simplicity
 cat(paste(paste("Site", seq_along(mean_site), ">>", (mean_site - 2*sd_site), "to", (mean_site + 2*sd_site)), collapse = "\n"))
 
 # Set the number of species
-n_species <- 20
+n_species <- 40
 
 # Set number of cells
-n_cells <- 1000
+n_cells <- 4000
 
 # Set the means for each species
-sel_x_species <- sample(15:28, n_species, replace = T)#c(29, 27, 26, 20, 15)
+sel_x_species <- sample(15:28, n_species, replace = T)
 
 # And also the variance
-sel_xhat_species <- sample(1:4, n_species, replace = T)#c(2, 3, 1, 2, 4)
+sel_xhat_species <- sample(1:4, n_species, replace = T)
 
 
 # Simulate several species with different number
@@ -45,6 +48,9 @@ for (site in seq_along(mean_site)) {
             x_site = mean_site[site],
             xhat_site = sd_site[site],
             ncells = n_cells,
+            # The upper and lower limits of environmental data were established
+            # based on data from Bio-ORACLE v3.0. We considered the average
+            # SST, although a test with the maximum could also be done
             site_min = -2,
             site_max = 31
         )
@@ -56,23 +62,25 @@ for (site in seq_along(mean_site)) {
 }
 
 simulated_datasets <- do.call("rbind", simulated_datasets)
+simulated_datasets$species_site <- paste(simulated_datasets$species, simulated_datasets$site)
+
+write.csv(simulated_datasets, file.path(sim_f, "simulation1.csv"), row.names = F)
+
 
 # Check that none have no presences
+# This should not be a problem when the simulation considers equal class sample
+# as done in this case
 summaries <- simulated_datasets |>
     dplyr::group_by(species, site) |>
     dplyr::summarise(
         presence = sum(sampled_occurrence),
         absence = length(sampled_occurrence) - sum(sampled_occurrence)
     )
-any(summaries$presence == 0)
-any(summaries$presence < 2)
+if (any(summaries$presence == 0)) warning("No presence data!")
+if (any(summaries$presence < 2)) warning("Sites with low number of presences")
 
 # TEST 1.1 Equal number of presences and absences
 # Make data object
-simulated_datasets$species_site <- paste(simulated_datasets$species, simulated_datasets$site)
-
-# Only work with a subset. Still to be checked.
-##simulated_datasets <- simulated_datasets[simulated_datasets$species_site %in% unique(simulated_datasets$species_site)[1:5],]
 
 dat <- list(
     N = nrow(simulated_datasets),
@@ -101,18 +109,29 @@ prec_res$expected <- c(spp_mu, spp_sd, 0)
 par(mfrow = c(1,2))
 plot(y = prec_res$mean[grepl("tmu", row.names(prec_res))],
      x = prec_res$expected[grepl("tmu", row.names(prec_res))],
-     xlab = "Expected", ylab = "Predicted", main = "Mean")
+     xlab = "Expected", ylab = "Predicted", main = "Mean", pch = 20, col = "#2c648e77")
 abline(lm(prec_res$mean[grepl("tmu", row.names(prec_res))] ~ prec_res$expected[grepl("tmu", row.names(prec_res))]))
 plot(y = prec_res$mean[grepl("tsd", row.names(prec_res))],
      x = prec_res$expected[grepl("tsd", row.names(prec_res))],
-     xlab = "Expected", ylab = "Predicted", main = "SD")
+     xlab = "Expected", ylab = "Predicted", main = "SD", pch = 20, col = "#2c648e77")
 abline(lm(prec_res$mean[grepl("tsd", row.names(prec_res))] ~ prec_res$expected[grepl("tsd", row.names(prec_res))]))
 
+# Compare fits using a Bland-Altman plot
+ba_plot_stats <- blandr::blandr.statistics(
+    prec_res$expected[grepl("tmu", row.names(prec_res))],
+    prec_res$mean[grepl("tmu", row.names(prec_res))]
+)
+blandr::blandr.plot.ggplot(ba_plot_stats) + 
+    ggplot2::geom_vline(xintercept = 20) +
+    ggplot2::geom_label(x = 21, y = -3.5, label = "Prior for mean")
+
+# Save results
 prec_res <- as.data.frame(prec_res)
 prec_res$what <- row.names(prec_res)
 row.names(prec_res) <- NULL
+class(prec_res) <- "data.frame"
 
-write.csv(prec_res, file.path("results/simulations", "t1_1_equal_number.csv"))
+write.csv(prec_res, file.path(res_f, "t1_1_equal_number.csv"), row.names = F)
 
 
 # TEST 1.2 Varying number of absences
@@ -164,123 +183,17 @@ for (tp in target_n_absence) {
     mval <- ceiling(range(c(
         mean_results$mean, mean_results$expected
     )))
-    plot(mean ~ expected, data = fd, main = paste(tp, "absences"), col = "#0066c0",
-        xlim = mval)
+    plot(mean ~ expected, data = fd, main = paste(tp, "absences"), col = "#0066c077",
+        xlim = mval, pch = 20)
     points(prec_res$mean[grepl("tmu", prec_res$what)] ~ prec_res$expected[grepl("tmu", prec_res$what)],
-           col = "#e27f0e", pch = 20)
+           col = "#e27f0e55", pch = 20)
 }
 
 write.csv(results_n_absence, file.path("results/simulations", "t1_2_varying_absences.csv"))
-
 
 
 # TEST 1.3: Simulated dataset based on true surface
 
 # TEST 1.4: Simulated dataset based on true surface with varying number of absences
 
-# TEST 1.5: Simulated dataset based on true surface with varying error
-
-# TEST 1.6: True dataset (fishes)
-
-# Get datasets
-rls <- do.call("rbind", lapply(list.files("data-raw", full.names = T, pattern = "rls"), read.csv))
-rls$h3_6 <- h3jsr::point_to_cell(rls[,c("SiteLong", "SiteLat")], res = 6)
-
-rls <- rls |>
-    group_by(h3_6) |>
-    distinct(Taxon)
-
-pa_rls_matrix <- rls |>
-    mutate(presence = 1) |>
-    tidyr::pivot_wider(names_from = Taxon, values_from = presence)
-
-pa_rls_matrix[is.na(pa_rls_matrix)] <- 0
-
-pa_rls_ds <- pa_rls_matrix |>
-    tidyr::pivot_longer(2:ncol(pa_rls_matrix), names_to = "species", values_to = "presence")
-
-pa_rls_pts <- h3jsr::cell_to_point(pa_rls_ds$h3_6)
-
-sst <- terra::rast("~/Research/mpa_europe/mpaeu_sdm/data/env/current/thetao_baseline_depthsurf_mean.tif")
-
-sst_pts <- terra::extract(sst, terra::vect(pa_rls_pts), ID = F)[,1]
-
-na_vals <- which(is.na(sst_pts))
-na_pts <- terra::vect(pa_rls_pts)[na_vals,]
-
-pb <- progress::progress_bar$new(total = length(na_vals))
-
-for (i in seq_along(na_vals)) {
-    pb$tick()
-    tc <- terra::cellFromXY(sst, data.frame(
-        x = terra::geom(na_pts[i,])[,c("x", "y")][1],
-        y = terra::geom(na_pts[i,])[,c("x", "y")][2]
-    ))
-    ad <- terra::adjacent(sst, tc, directions = 8)
-    vv <- terra::extract(sst, as.vector(ad))[,1]
-    if (any(!is.na(vv))) {
-        sst_pts[na_vals[i]] <- vv[!is.na(vv)][1]
-    } 
-}
-
-pa_rls_ds$temperature <- sst_pts
-
-pa_rls_ds <- pa_rls_ds[!is.na(pa_rls_ds$temperature),]
-
-stats_sp <- pa_rls_ds |>
-    group_by(species) |>
-    summarise(presence_n = sum(presence), absence_n = sum(presence == 0))
-
-stats_sp <- stats_sp |>
-    ungroup() |>
-    filter(presence_n > 20 & absence_n > 0)
-
-pa_rls_ds <- pa_rls_ds[pa_rls_ds$species %in% stats_sp$species,]
-
-dat <- list(
-    N = nrow(pa_rls_ds),
-    N_spp = length(unique(pa_rls_ds$species)),
-    sid = as.integer(as.factor(pa_rls_ds$species)),
-    sst = pa_rls_ds$temperature,
-    y = pa_rls_ds$presence
-)
-
-spp_mu <- rep(NA, dat$N_spp)
-spp_sd <- spp_mu
-for (i in seq_len(dat$N_spp)) {
-    spp_mu[i] <- mean(pa_rls_ds$temperature[dat$sid==i & dat$y == 1])
-    spp_sd[i] <- sd(pa_rls_ds$temperature[dat$sid==i & dat$y == 1])
-}
-
-m_sim6 <- cstan(file = "codes/model4.stan", data = dat, rstan_out = FALSE)
-
-prec_res <- precis(m_sim6, 2)
-prec_res$expected <- c(spp_mu, spp_sd, 0)
-
-# Plot to check
-par(mfrow = c(1,2))
-plot(y = prec_res$mean[grepl("tmu", row.names(prec_res))],
-     x = prec_res$expected[grepl("tmu", row.names(prec_res))],
-     xlab = "Expected", ylab = "Predicted", main = "Mean")
-abline(lm(prec_res$mean[grepl("tmu", row.names(prec_res))] ~ prec_res$expected[grepl("tmu", row.names(prec_res))]))
-plot(y = prec_res$mean[grepl("tsd", row.names(prec_res))],
-     x = prec_res$expected[grepl("tsd", row.names(prec_res))],
-     xlab = "Expected", ylab = "Predicted", main = "SD")
-abline(lm(prec_res$mean[grepl("tsd", row.names(prec_res))] ~ prec_res$expected[grepl("tsd", row.names(prec_res))]))
-
-prec_res <- as.data.frame(prec_res)
-prec_res$what <- row.names(prec_res)
-row.names(prec_res) <- NULL
-
-write.csv(prec_res, file.path("results/simulations", "t1_6_true_species.csv"))
-
-
-
-
-
-
-for (i in unique(simulated_datasets$species_site)) {
-    d <- simulated_datasets[simulated_datasets$species_site == i,]
-    plot(density(d$surface[d$sampled_occurrence == 1]))
-    lines(density(d$surface[d$sampled_occurrence == 0]), col = "red")
-}
+# TEST 1.5: Simulated dataset based on true surface with varying bias

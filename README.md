@@ -18,6 +18,8 @@ Codes for model testing are named [type]_tests.R. For example, the code for the 
 
 The current [Stan](https://mc-stan.org/) model in use is **model 4** (`model4.stan`)
 
+Codes used for preparing non-simulated data (for tests 2 and 3, and for specific use cases) are on `codes/data-processing`
+
 ## Action plan
 Last modified in September 2024
 
