@@ -60,3 +60,7 @@ data-raw/
 codes/drafts/
 figures/
 results/
+
+# Ignore stan files
+model[0-9]
+!model[0-9].stan
