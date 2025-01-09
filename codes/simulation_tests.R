@@ -5,6 +5,7 @@
 # Contact: s.principe@unesco.org
 
 set.seed(2023)
+library(terra)
 library(dplyr)
 library(rethinking)
 source("codes/simulate_species.R")
@@ -193,6 +194,128 @@ write.csv(results_n_absence, file.path("results/simulations", "t1_2_varying_abse
 
 
 # TEST 1.3: Simulated dataset based on true surface
+
+# Download SST data
+# download.file("https://erddap.bio-oracle.org/erddap/griddap/thetao_baseline_2000_2019_depthsurf.nc?thetao_mean%5B(2000-01-01):1:(2010-01-01T00:00:00Z)%5D%5B(-89.975):1:(89.975)%5D%5B(-179.975):1:(179.975)%5D",
+# "data-raw/thetao_baseline_depthsurf_mean.nc")
+# sst <- rast("data-raw/thetao_baseline_depthsurf_mean.nc")
+# sst <- mean(sst)
+# writeRaster(sst, "data-raw/thetao_baseline_depthsurf_mean.tif", overwrite = T)
+# file.remove("data-raw/thetao_baseline_depthsurf_mean.nc")
+
+sst <- rast("data-raw/thetao_baseline_depthsurf_mean.tif")
+
+# Crop to an area
+cam <- ext(-86.308594, -58.095703, 12.46876, 32.916485)
+sst_c <- crop(sst, cam)
+plot(sst_c)
+sst_c_vals <- values(sst_c)[,1]
+sst_c_vals <- sst_c_vals[!is.na(sst_c_vals)]
+length(sst_c_vals)
+summary(sst_c_vals)
+
+# Set the number of species
+n_species <- 6
+
+# Set number of cells
+n_cells <- 4000
+
+# Set the means for each species
+sel_x_species <- seq(from = 23, to = 28)
+
+# And also the variance
+sel_xhat_species <- rep(1, n_species)
+
+
+# Simulate several species with different number
+simulated_ds_env <- lapply(1:n_species, function(x) NULL)
+for (sp in seq_len(n_species)) {
+    sim_r <- sim_species_env(
+        x_species = sel_x_species[sp],
+        xhat_species = sel_xhat_species[sp],
+        site_values = sst_c_vals,
+        ncells = n_cells
+    )
+    sim_r <- as.data.frame(sim_r)
+    sim_r$species <- paste("species", sp)
+    simulated_ds_env[[sp]] <- sim_r
+}
+
+simulated_ds_env <- do.call("rbind", simulated_ds_env)
+table(simulated_ds_env$sampled_occurrence, simulated_ds_env$species)
+
+# Create another dataset with equal number of absences by subsampling
+simulated_ds_env_eq <- simulated_ds_env %>%
+    group_by(species, sampled_occurrence) %>%
+    sample_n(size = 150)
+table(simulated_ds_env_eq$sampled_occurrence, simulated_ds_env_eq$species)
+
+simulated_ds_env$type <- "original"
+simulated_ds_env_eq$type <- "reduced"
+
+simulated_ds_env <- rbind(simulated_ds_env, simulated_ds_env_eq)
+
+write.csv(simulated_ds_env, file.path(sim_f, "simulation2.csv"), row.names = F)
+
+# We will work only with the reduced for now
+simulated_ds_env <- simulated_ds_env[simulated_ds_env$type == "reduced",]
+for (i in unique(simulated_ds_env$species)) {
+    spd <- simulated_ds_env[simulated_ds_env$species == i,]
+    cat("Avg pres = ", mean(spd$surface[spd$true_occurrence == 1]),
+    "Avg abs = ", mean(spd$surface[spd$true_occurrence == 0]), "\n")
+    plot(density(spd$surface[spd$true_occurrence == 1]))
+    lines(density(spd$surface[spd$true_occurrence == 0]), col = "red")
+}
+
+# Make data object
+dat <- list(
+    N = nrow(simulated_ds_env),
+    N_spp = length(unique(simulated_ds_env$species)),
+    sid = as.integer(as.factor(simulated_ds_env$species)),
+    sst = simulated_ds_env$surface,
+    y = simulated_ds_env$sampled_occurrence
+)
+
+# spp_mu <- rep(NA, dat$N_spp)
+# spp_sd <- spp_mu
+# for (i in seq_len(dat$N_spp)) {
+#     suit <- simulated_ds_env$surface_suitability[dat$sid==i]
+#     sst <- simulated_ds_env$surface[dat$sid==i]
+#     spp_mu[i] <- sst[suit == max(suit)]
+#     sst_b <- simulated_ds_env$surface[dat$sid==i & dat$y == 1]
+#     spp_sd[i] <- sd(sst_b)
+# }
+spp_mu <- sel_x_species
+spp_sd <- sel_xhat_species
+
+m_sim3 <- cstan(file = "codes/model4.stan", data = dat, rstan_out = FALSE)
+
+prec_res <- precis(m_sim3, 2)
+prec_res$expected <- c(spp_mu, spp_sd, 0)
+
+# Plot to check
+par(mfrow = c(1,1))
+plot(y = prec_res$mean[grepl("tmu", row.names(prec_res))],
+     x = prec_res$expected[grepl("tmu", row.names(prec_res))],
+     xlab = "Expected", ylab = "Predicted", main = "Mean", pch = 20, col = "#2c648e77")
+abline(lm(prec_res$mean[grepl("tmu", row.names(prec_res))] ~ prec_res$expected[grepl("tmu", row.names(prec_res))]))
+
+# Compare fits using a Bland-Altman plot
+ba_plot_stats <- blandr::blandr.statistics(
+    prec_res$expected[grepl("tmu", row.names(prec_res))],
+    prec_res$mean[grepl("tmu", row.names(prec_res))]
+)
+blandr::blandr.plot.ggplot(ba_plot_stats) + 
+    ggplot2::geom_vline(xintercept = 20) +
+    ggplot2::geom_label(x = 21, y = -3.5, label = "Prior for mean")
+
+# Save results
+prec_res <- as.data.frame(prec_res)
+prec_res$what <- row.names(prec_res)
+row.names(prec_res) <- NULL
+class(prec_res) <- "data.frame"
+
+write.csv(prec_res, file.path(res_f, "t1_1_equal_number.csv"), row.names = F)
 
 # TEST 1.4: Simulated dataset based on true surface with varying number of absences
 

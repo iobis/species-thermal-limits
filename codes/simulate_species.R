@@ -141,7 +141,7 @@ sim_species_env <- function(x_species = 29, xhat_species = 2,
     site_values <- site_values[site_values <= site_max]
   }
   if (!is.null(ncells) && length(site_values) > ncells) {
-    site_values <- site_values[site_values <= site_max]
+    site_values <- sample(site_values, ncells)
   } else if (!is.null(ncells)) {
     cat("`site_values` is",
      ifelse(length(site_values) < ncells, "less than `ncells`.", "equal than `ncells`."),
