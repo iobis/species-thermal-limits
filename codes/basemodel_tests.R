@@ -153,7 +153,7 @@ for (i in seq_len(N_sims)) {
         p = 0.5,
         tmu = tmus,
         tsd = rep(tsds, length(tmus)),
-        site_max = 32
+        site_max = 31
     )
     #data.frame(true_mean = tmus, sim_means = tapply(ds$dataset$sst, ds$dataset$sid, mean))
 
@@ -241,7 +241,7 @@ for (i in seq_len(N_sims)) {
         p = detect,
         tmu = tmus,
         tsd = rep(tsds, length(tmus)),
-        site_max = 32
+        site_max = 31
     )
     #data.frame(true_mean = tmus, sim_means = tapply(ds$dataset$sst, ds$dataset$sid, mean))
 
