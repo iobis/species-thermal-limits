@@ -115,6 +115,7 @@ pull_stats <- function(sim_datasets, sim = 1, which_stat = "count", format = "wi
 
 #### Run simulations
 # SIMULATION 1
+# Normal conditions
 # Number of simulations
 N_sims <- 100
 # Means of sites -> prior of STAN model is 20
@@ -173,6 +174,7 @@ pull_stats(sim_datasets, sim = 1, which_stat = "means")
 
 
 # SIMULATION 2
+# Truncated at upper bound
 # Number of simulations
 N_sims <- 100
 # Means of sites -> prior of STAN model is 20
@@ -237,6 +239,8 @@ pull_stats(sim2_datasets, sim = 1, which_stat = "means")
 
 
 # SIMULATION 3
+# Truncated at upper bound and with a lower detectability for absence
+# i.e., chances of wrongly identifying an absence are higher
 # Number of simulations
 N_sims <- 100
 # Means of sites -> prior of STAN model is 20
@@ -245,6 +249,8 @@ tmus <- 15:29
 tsds <- 2
 # Detectability (only for absence)
 detect <- 0.1
+# Define a maximum for site (truncated)
+max_site <- 31
 
 sim3_results <- lapply(seq_len(N_sims), function(x) NULL)
 sim3_datasets <- sim3_results
@@ -259,7 +265,7 @@ for (i in seq_len(N_sims)) {
         p = detect,
         tmu = tmus,
         tsd = rep(tsds, length(tmus)),
-        site_max = 31
+        site_max = max_site
     )
     sim3_datasets[[i]] <- ds
 
