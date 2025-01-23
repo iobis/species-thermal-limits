@@ -331,7 +331,7 @@ tsds <- 2
 # Detectability (only for absence)
 detect <- 0.5
 # Scaling factor
-scaling <- 0.1
+scaling <- 0.2
 
 
 sim4_results <- lapply(seq_len(N_sims), function(x) NULL)
@@ -348,7 +348,7 @@ for (i in seq_len(N_sims)) {
         tmu = tmus,
         tsd = rep(tsds, length(tmus)),
         site_max = 31,
-        scaling = 0.2
+        scaling = scaling
     )
     sim4_datasets[[i]] <- ds
 
