@@ -14,7 +14,7 @@ if (!require(truncnorm, quietly = T)) {
 # 2. Create function to run the simulation
 # 3. Run simulation - fixed tmu (at prior), high N
 # 4. Run simulation - fixed tmu (lower end), high N
-# 5. Run simulation - fixed tmu (higher end), high N
+# 5. Run simulation - fixed tmu (upper end), high N
 
 # 1. Create function to sample ------
 # We create a function to generate the simulated datasets
@@ -163,25 +163,89 @@ N_sims <- 50
 # Number of points/records
 N_pts <- 500
 # Means of sites -> prior of STAN model is 20
-tmus <- rep(20, 5) # 15 species (each with an optimum SST)
+tmus <- rep(20, 5)
 # SD (fixed across sites)
 tsds <- 2
 # Set scaling (just for second simulation)
 rare_scaling <- seq(0.2, 1, length.out = 5)
 
 
-sim_results_agg_rs_v4 <- run_simulation(
+sim1_v4 <- run_simulation(
     tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
     scaling = rare_scaling, stan_model_version = 4
 )
-sim_results_agg_rs_v5 <- run_simulation(
+sim1_v5 <- run_simulation(
     tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
     scaling = rare_scaling, stan_model_version = 5
 )
 
 # Pull 1 simulation as example
-sim_results_agg_rs_v4 |> filter(simulation_id == 1)
-sim_results_agg_rs_v5 |> filter(simulation_id == 1)
+sim1_v4 |> filter(simulation_id == 1)
+sim1_v5 |> filter(simulation_id == 1)
 
-plot_histogram(sim_results_agg_rs_v4, "Average value - with scaling - Model 4")
-plot_histogram(sim_results_agg_rs_v5, "Average value - with scaling - Model 5")
+plot_histogram(sim1_v4, "Average value - with scaling - Model 4")
+plot_histogram(sim1_v5, "Average value - with scaling - Model 5")
+
+
+
+
+# 4. Run simulation - fixed tmu (lower end), high N ------
+# Number of simulations
+N_sims <- 50
+# Number of points/records
+N_pts <- 500
+# Means of sites -> prior of STAN model is 20
+tmus <- rep(15, 5)
+# SD (fixed across sites)
+tsds <- 2
+# Set scaling (just for second simulation)
+rare_scaling <- seq(0.2, 1, length.out = 5)
+
+
+sim2_v4 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 4
+)
+sim2_v5 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 5
+)
+
+# Pull 1 simulation as example
+sim2_v4 |> filter(simulation_id == 1)
+sim2_v5 |> filter(simulation_id == 1)
+
+plot_histogram(sim2_v4, "Average value - with scaling - lower end - Model 4")
+plot_histogram(sim2_v5, "Average value - with scaling - lower end - Model 5")
+
+
+
+
+# 5. Run simulation - fixed tmu (upper end), high N ------
+# Number of simulations
+N_sims <- 50
+# Number of points/records
+N_pts <- 500
+# Means of sites -> prior of STAN model is 20
+tmus <- rep(28, 5)
+# SD (fixed across sites)
+tsds <- 2
+# Set scaling (just for second simulation)
+rare_scaling <- seq(0.2, 1, length.out = 5)
+
+
+sim3_v4 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 4
+)
+sim3_v5 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 5
+)
+
+# Pull 1 simulation as example
+sim3_v4 |> filter(simulation_id == 1)
+sim3_v5 |> filter(simulation_id == 1)
+
+plot_histogram(sim3_v4, "Average value - with scaling - upper end - Model 4")
+plot_histogram(sim3_v5, "Average value - with scaling - upper end - Model 5")
