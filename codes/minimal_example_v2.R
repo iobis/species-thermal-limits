@@ -10,11 +10,11 @@ if (!require(truncnorm, quietly = T)) {
     install.packages("truncnorm")
 }
 
-# 1. Create function to sample (line 19)
-# 2. Set the parameters for the simulation (line 102)
-# 3. Create function to run the simulation (line 115)
-# 4. Run simulations with no scaling (line 170)
-# 5. Run simulation with scaling, simulating low probability of presence (line 184)
+# 1. Create function to sample
+# 2. Create function to run the simulation
+# 3. Run simulation - fixed tmu (at prior), high N
+# 4. Run simulation - fixed tmu (lower end), high N
+# 5. Run simulation - fixed tmu (higher end), high N
 
 # 1. Create function to sample ------
 # We create a function to generate the simulated datasets
@@ -103,21 +103,8 @@ plot_histogram <- function(sim_results_agg, title) {
 
 
 
-
-# 2. Set the parameters for the simulation -----
-# Number of simulations
-N_sims <- 10
-# Means of sites -> prior of STAN model is 20
-tmus <- 15:29 # 15 species (each with an optimum SST)
-# SD (fixed across sites)
-tsds <- 2
-# Set scaling (just for second simulation)
-rare_scaling <- 0.2
-
-
-
-# 3. Create function to run the simulation -------
-run_simulation <- function(scaling = 1, stan_model_version = 5) {
+# 2. Create function to run the simulation -------
+run_simulation <- function(tmus, tsds, N_pts, scaling, N_sims, stan_model_version = 5) {
     sim_results <- lapply(seq_len(N_sims), function(x) NULL)
     message("Using Stan model version ", stan_model_version, "\n")
 
@@ -126,7 +113,7 @@ run_simulation <- function(scaling = 1, stan_model_version = 5) {
         message(paste("Simulation", i, "of", N_sims))
 
         ds <- sim_dataset(
-            N = length(tmus) * 100,
+            N = length(tmus) * N_pts,
             n_sp = length(tmus),
             p = 0.5,
             tmu = tmus,
@@ -170,25 +157,27 @@ run_simulation <- function(scaling = 1, stan_model_version = 5) {
 }
 
 
+# 3. Run simulation - fixed tmu (at prior), high N ------
+# Number of simulations
+N_sims <- 50
+# Number of points/records
+N_pts <- 500
+# Means of sites -> prior of STAN model is 20
+tmus <- rep(20, 5) # 15 species (each with an optimum SST)
+# SD (fixed across sites)
+tsds <- 2
+# Set scaling (just for second simulation)
+rare_scaling <- seq(0.2, 1, length.out = 5)
 
 
-# 4. Run simulations with no scaling (i.e. normal conditions) ------
-sim_results_agg_v4 <- run_simulation(stan_model_version = 4)
-sim_results_agg_v5 <- run_simulation(stan_model_version = 5)
-
-# Pull 1 simulation as example
-sim_results_agg_v4 |> filter(simulation_id == 1)
-sim_results_agg_v5 |> filter(simulation_id == 1)
-
-plot_histogram(sim_results_agg_v4, "Average value - no scaling - Model 4")
-plot_histogram(sim_results_agg_v5, "Average value - no scaling - Model 5")
-# Plots shows the distribution of estimates, for each species, across simulations
-# The blue histogram depicts the 5.5% value, the red the 94.5%, while the grey represents the mean.
-# Black line is the original mean for the species, and grey lines mean+SD
-
-# 5. Run simulation with scaling, simulating low probability of presence ------
-sim_results_agg_rs_v4 <- run_simulation(scaling = rare_scaling, stan_model_version = 4)
-sim_results_agg_rs_v5 <- run_simulation(scaling = rare_scaling, stan_model_version = 5)
+sim_results_agg_rs_v4 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 4
+)
+sim_results_agg_rs_v5 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 5
+)
 
 # Pull 1 simulation as example
 sim_results_agg_rs_v4 |> filter(simulation_id == 1)
