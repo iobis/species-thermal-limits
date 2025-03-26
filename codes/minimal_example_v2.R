@@ -104,7 +104,8 @@ plot_histogram <- function(sim_results_agg, title) {
 
 
 # 2. Create function to run the simulation -------
-run_simulation <- function(tmus, tsds, N_pts, scaling, N_sims, stan_model_version = 5) {
+run_simulation <- function(tmus, tsds, N_pts, scaling, N_sims, stan_model_version = 5,
+                           site_min = -Inf, site_max = Inf) {
     sim_results <- lapply(seq_len(N_sims), function(x) NULL)
     message("Using Stan model version ", stan_model_version, "\n")
 
@@ -118,7 +119,9 @@ run_simulation <- function(tmus, tsds, N_pts, scaling, N_sims, stan_model_versio
             p = 0.5,
             tmu = tmus,
             tsd = rep(tsds, length(tmus)),
-            scaling = scaling
+            scaling = scaling,
+            site_min = site_min,
+            site_max = site_max
         )
 
         dat <- list(
@@ -249,3 +252,118 @@ sim3_v5 |> filter(simulation_id == 1)
 
 plot_histogram(sim3_v4, "Average value - with scaling - upper end - Model 4")
 plot_histogram(sim3_v5, "Average value - with scaling - upper end - Model 5")
+
+
+
+# 6. Run simulation - varying tmu, high N ------
+# Number of simulations
+N_sims <- 50
+# Number of points/records
+N_pts <- 500
+# Means of sites -> prior of STAN model is 20
+tmus <- 15:29
+# SD (fixed across sites)
+tsds <- 2
+# Set scaling (just for second simulation)
+rare_scaling <- sample(seq(0.2, 1, length.out = 5), 15, replace = T)
+
+
+sim4_v4 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 4
+)
+sim4_v5 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 5
+)
+
+# Pull 1 simulation as example
+sim4_v4 |> filter(simulation_id == 1)
+sim4_v5 |> filter(simulation_id == 1)
+
+plot_histogram(sim4_v4, "Average value - with scaling - Model 4")
+plot_histogram(sim4_v5, "Average value - with scaling - Model 5")
+
+
+
+# 7. Run simulation - varying tmu, different N points ------
+# Number of simulations
+N_sims <- 1
+# Number of points/records
+N_pts <- c(seq(500, 100, by = -100), 20)
+# Means of sites -> prior of STAN model is 20
+tmus <- 15:29
+# SD (fixed across sites)
+tsds <- 2
+# Set scaling (just for second simulation)
+rare_scaling <- sample(seq(0.2, 1, length.out = 5), 15, replace = T)
+
+
+sim5_v4 <- lapply(N_pts, \(x) {
+    message("Running with N pts = ", x)
+    sim <- run_simulation(
+        tmus = tmus, tsds = tsds, N_pts = x, N_sims = N_sims,
+        scaling = rare_scaling, stan_model_version = 4
+    )
+    sim$N_pts <- x
+    sim
+})
+sim5_v5 <- lapply(N_pts, \(x) {
+    message("Running with N pts = ", x)
+    sim <- run_simulation(
+        tmus = tmus, tsds = tsds, N_pts = x, N_sims = N_sims,
+        scaling = rare_scaling, stan_model_version = 5
+    )
+    sim$N_pts <- x
+    sim
+})
+
+sim5_v4 <- do.call("rbind", sim5_v4)
+sim5_v5 <- do.call("rbind", sim5_v5)
+
+sim5_v4 |> 
+    filter(what == "tmu") |>
+    ggplot(aes(x = expected, y = mean)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    facet_wrap(~ N_pts) + theme_light()
+
+sim5_v5 |> 
+    filter(what == "tmu") |>
+    ggplot(aes(x = expected, y = mean)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    facet_wrap(~ N_pts) + theme_light()
+
+
+
+# 8. Run simulation - varying tmu, high N, truncated at high point ------
+# Number of simulations
+N_sims <- 50
+# Number of points/records
+N_pts <- 500
+# Means of sites -> prior of STAN model is 20
+tmus <- 16:30 # Different from the others, to force more the truncation on the last
+# SD (fixed across sites)
+tsds <- 2
+# Set scaling (just for second simulation)
+rare_scaling <- sample(seq(0.2, 1, length.out = 5), 15, replace = T)
+# Maximum of site for truncation
+site_max <- 31
+
+sim6_v4 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 4, site_max = site_max
+)
+sim6_v5 <- run_simulation(
+    tmus = tmus, tsds = tsds, N_pts = N_pts, N_sims = N_sims,
+    scaling = rare_scaling, stan_model_version = 5, site_max = site_max
+)
+
+# Pull 1 simulation as example
+sim6_v4 |> filter(simulation_id == 1)
+sim6_v5 |> filter(simulation_id == 1)
+
+plot_histogram(sim6_v4, "Average value - with scaling - Model 4")
+plot_histogram(sim6_v5, "Average value - with scaling - Model 5")
+
