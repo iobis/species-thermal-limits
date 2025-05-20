@@ -26,19 +26,12 @@ sp_good <- occ_n[occ_n[,2] >= 30,]
 fish_data <- fish_data %>%
     filter(scientificname %in% row.names(sp_good))
 
-fish_summs <- fish_data %>%
-    filter(presence == 1) %>%
-    summarise(
-        mean_s = mean(surface_temperature),
-        sd_s = sd(surface_temperature),
-        mean_b = mean(bottom_temperature),
-        sd_b = sd(bottom_temperature)
-    )
-
 # Remove absence data that is too far from presence
 remove_absence <- function(presence, h3) {
     pres_h3 <- h3[presence == 1]
-    near_disks <- h3jsr::get_disk(pres_h3)
+    # H3 at resolution 7 has a hex area of ~ 5km2, thus ~ 2.7km diagonal
+    # 25 cells is thus ~ 55km appart
+    near_disks <- h3jsr::get_disk(pres_h3, ring_size = 50)
     near_disks <- unique(unlist(near_disks))
     h3 %in% near_disks
 }
@@ -48,6 +41,40 @@ fish_data  <- fish_data %>%
     mutate(to_keep = remove_absence(presence, h3_7)) %>%
     filter(to_keep) %>%
     select(-to_keep)
+
+table(fish_data$scientificname, fish_data$presence)
+
+# Sample 20 species for first test
+sel_sp <- sample(unique(fish_data$scientificname), 20)
+fish_data <- fish_data %>%
+    filter(scientificname %in% sel_sp)
+table(fish_data$scientificname, fish_data$presence)
+
+#### TEMPORARY
+to_remove <- function(presence, target = 500) {
+    which_0 <- which(presence == 0)
+    which_0 <- sample(which_0, target)
+    to_r <- rep(FALSE, length(presence))
+    to_r[presence == 0] <- TRUE
+    to_r[which_0] <- FALSE
+    to_r
+}
+fish_data <- fish_data %>%
+    group_by(scientificname) %>%
+    mutate(remove = to_remove(presence)) %>%
+    filter(!remove) %>%
+    select(-remove)
+
+####
+
+fish_summs <- fish_data %>%
+    filter(presence == 1) %>%
+    summarise(
+        mean_s = mean(surface_temperature),
+        sd_s = sd(surface_temperature),
+        mean_b = mean(bottom_temperature),
+        sd_b = sd(bottom_temperature)
+    )
 
 # Create object for modelling
 dat <- list(
@@ -92,3 +119,101 @@ row.names(prec_res) <- NULL
 class(prec_res) <- "data.frame"
 
 write.csv(prec_res, file.path(res_f, "t2_1_true_pa_data.csv"), row.names = F)
+
+# Investigate higher deviances
+means_v <- prec_res[grepl("tmu", prec_res$what),]
+means_v$delta <- means_v$expected - means_v$mean
+means_v$species <- levels(as.factor(fish_data$scientificname))
+means_v <- means_v[order(abs(means_v$delta), decreasing = T),]
+means_v
+
+worst_species <- means_v$species[1:5]
+best_species <- means_v$species[15:20]
+
+fish_data %>%
+    filter(scientificname %in% worst_species) %>%
+    group_by(scientificname, presence) %>%
+    summarise(
+        mean_sst = mean(surface_temperature),
+        sd_sst = sd(surface_temperature)
+    )
+
+wrld <- rnaturalearth::ne_countries(returnclass = "sf")
+
+fish_pts <- fish_data %>%
+    filter(scientificname %in% worst_species)
+fish_xy <- h3jsr::cell_to_point(fish_pts$h3_7)
+fish_xy <- sf::st_as_sf(fish_xy)
+fish_xy$species <- fish_pts$scientificname
+fish_xy$presence <- fish_pts$presence
+
+library(ggplot2)
+ggplot() +
+    geom_sf(data = wrld, fill = "grey80", color = "grey80") +
+    geom_sf(data = fish_xy, aes(color = as.factor(presence)), alpha = .8) +
+    theme_classic() +
+    facet_wrap(~ species)
+
+
+fish_data %>%
+    filter(scientificname %in% worst_species) %>%
+    group_by(scientificname, presence) %>%
+    count()
+
+fish_data %>%
+    filter(scientificname %in% worst_species) %>%
+    group_by(scientificname, presence) %>%
+    summarise(mean_sst = mean(surface_temperature), sd_sst = sd(surface_temperature))
+
+fish_data %>%
+    filter(scientificname %in% best_species) %>%
+    group_by(scientificname, presence) %>%
+    ggplot() +
+        geom_boxplot(aes(x = as.factor(presence), y = surface_temperature)) +
+        facet_wrap(~scientificname)
+
+fish_data %>%
+    filter(scientificname %in% worst_species) %>%
+    group_by(scientificname, presence) %>%
+    ggplot() +
+        geom_boxplot(aes(x = as.factor(presence), y = surface_temperature)) +
+        facet_wrap(~scientificname)
+
+
+
+fake_data <- data.frame(
+    presence = c(rep(1, 30), rep(0, 30)),
+    sst = truncnorm::rtruncnorm(60, mean = 27, sd = 1, b = 31),
+    species = "Species A"
+)
+
+fake_data <- rbind(fake_data,
+            data.frame(
+    presence = c(rep(1, 30), rep(0, 30)),
+    sst = truncnorm::rtruncnorm(60, mean = 28, sd = 1, b = 31),
+    species = "Species B"
+))
+
+par(mfrow = c(1,1))
+boxplot(fake_data$sst ~fake_data$presence+fake_data$species)
+
+
+# Create object for modelling
+dat <- list(
+    N = nrow(fake_data),
+    N_spp = length(unique(fake_data$species)),
+    sid = as.integer(as.factor(fake_data$specie)),
+    sst = fake_data$sst,
+    y = fake_data$presence
+)
+
+str(dat)
+
+m_true2 <- cstan(file = "codes/model4.stan", data = dat, rstan_out = FALSE)
+
+prec_res2 <- precis(m_true2, 2)
+prec_res2$expected <- c(27, 28, 1, 1, 0)
+prec_res2
+
+# Simulate data with lower upper bound for the suitability to
+#see if same data

@@ -367,3 +367,86 @@ sim6_v5 |> filter(simulation_id == 1)
 plot_histogram(sim6_v4, "Average value - with scaling - Model 4")
 plot_histogram(sim6_v5, "Average value - with scaling - Model 5")
 
+
+
+# 9. Real data
+library(terra)
+species <- c("boru", "hara", "mybo", "lujo", "spam", "scze", "acch")
+sst <- rast("data-raw/thetao_baseline_depthsurf_mean.tif")
+
+species_data <- lapply(species, function(x){
+    dat <- read.csv(file.path("data", paste0(x, "_pa.csv")))
+    colnames(dat)[3] <- "presence"
+    dat$species <- x
+    sst_d <- extract(sst, dat[,1:2])
+    dat$sst <- sst_d$mean
+    dat <- dat[!is.na(dat$sst),]
+    dat
+})
+
+species_data <- do.call("rbind", species_data)
+
+expected <- species_data |> 
+    filter(presence == 1) |> 
+    group_by(species) |> 
+    summarise(expected = mean(sst), expected_sd = sd(sst))
+
+species_data <- left_join(species_data, expected)
+
+dat <- list(
+            N = nrow(species_data),
+            N_spp = length(unique(species_data$species)),
+            sid = as.integer(as.factor(species_data$species)),
+            sst = species_data$sst,
+            y = species_data$presence,
+            expected = species_data$expected,
+            expected_sd = species_data$expected_sd
+        )
+
+m5 <- cstan(file = paste0("codes/model5.stan"), data = dat, rstan_out = FALSE)
+prec_res_m5 <- precis(m5, 2)
+
+m4 <- cstan(file = paste0("codes/model4.stan"), data = dat, rstan_out = FALSE)
+prec_res_m4 <- precis(m4, 2)
+
+plot_data <- data.frame(
+    species_id = c(1:7, 1:7),
+    predicted = c(prec_res_m4$mean[1:7], prec_res_m5$mean[1:7]),
+    predicted_low = c(prec_res_m4$`5.5%`[1:7], prec_res_m5$`5.5%`[1:7]),
+    predicted_high = c(prec_res_m4$`94.5%`[1:7], prec_res_m5$`94.5%`[1:7]),
+    model = c(rep("M4", 7), rep("M5", 7))
+)
+
+expected2 <- expected
+expected2$species_id <- as.integer(as.factor(expected2$species))
+
+plot_data <- left_join(plot_data, expected2)
+
+ggplot(plot_data) +
+    geom_pointrange(aes(x = expected, y = predicted, ymin = predicted_low, ymax = predicted_high, color = species), linewidth = 1) +
+    geom_pointrange(aes(x = expected, y = predicted, xmin = expected - expected_sd, xmax = expected + expected_sd, color = species),
+    linetype = 2) +
+    theme_light() +
+    scale_x_continuous(breaks = seq(14, 32, by = 2), limits = c(14,32)) +
+    scale_y_continuous(breaks = seq(14, 32, by = 2), limits = c(14,32)) +
+    theme(panel.grid.minor = element_blank(), strip.background = element_rect(fill = "black")) +
+    facet_wrap(~model)
+ggsave("figures/true_fish.png", width = 12, height = 7)
+
+
+wrld <- rnaturalearth::ne_countries(returnclass = "sf")
+
+species_data_sf <- sf::st_as_sf(species_data, coords = c("decimalLongitude", "decimalLatitude"), crs = "EPSG:4326")
+sf::sf_use_s2(FALSE)
+wrld <- sf::st_crop(wrld, species_data_sf)
+species_data_sf$presence <- as.factor(species_data_sf$presence)
+ggplot() +
+    geom_sf(data = wrld, fill = "grey70", color = "grey60") +
+    geom_sf(data = species_data_sf, aes(color = presence), alpha = .5) +
+    scale_color_manual(values = c("#1132b7", "#f57d05")) +
+    theme_light() +
+    facet_wrap(~ species)
+ggsave("figures/true_fish_maps.png", width = 16, height = 11)
+
+save.image(file = "to-continue.RData")
+load("to-continue.RData")
