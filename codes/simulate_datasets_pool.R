@@ -64,7 +64,7 @@ sim_dataset_pool <- function(
 set.seed(2025)
 library(rethinking)
 library(dplyr)
-stan_model_version <- 6
+stan_model_version <- 7
 
 sim_data <- sim_dataset_pool(
     N = 2000,
@@ -88,11 +88,23 @@ dat <- list(
 m <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = dat, rstan_out = FALSE)
 
 prec_res <- precis(m, 2)
-prec_res$expected <- c(sim_data$tmu, sim_data$tsd, sim_data$tomax,
-                       sim_data$p, sim_data$mu_tmu, sim_data$sigma_tmu,
-                       sim_data$mu_tsd, sim_data$sigma_tsd)
+prec_res
+prec_res <- prec_res[grepl("tmu|tsd", rownames(prec_res)),]
+prec_res[,1:4] <- exp(prec_res[,1:4])
+prec_res$expected <- c(sim_data$tmu, sim_data$tsd)
 prec_res$delta <- prec_res$mean - prec_res$expected
 prec_res
+
+plot(prec_res$mean[grep("tmu\\[", rownames(prec_res))],
+     prec_res$expected[grep("tmu\\[", rownames(prec_res))],
+     col = "#1c57be6b", pch = 19,
+     xlab = "Estimated tmu", ylab = "Expected tmu",
+     main = "Estimated vs Expected tmu",
+     xlim = c(range(c(prec_res$mean[grep("tmu\\[", rownames(prec_res))],
+                      prec_res$expected[grep("tmu\\[", rownames(prec_res))]))),
+     ylim = c(range(c(prec_res$mean[grep("tmu\\[", rownames(prec_res))],
+                      prec_res$expected[grep("tmu\\[", rownames(prec_res))]))))
+
 
 # Now try to vary number of points per species
 sim_data_b <- sim_data
@@ -121,9 +133,9 @@ dat <- list(
 m_b <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = dat, rstan_out = FALSE)
 
 prec_res_b <- precis(m_b, 2)
-prec_res_b$expected <- c(sim_data_b$tmu, sim_data_b$tsd, sim_data_b$tomax,
-                       sim_data_b$p, sim_data_b$mu_tmu, sim_data_b$sigma_tmu,
-                       sim_data_b$mu_tsd, sim_data_b$sigma_tsd)
+prec_res_b <- prec_res_b[grepl("tmu|tsd", rownames(prec_res_b)),]
+prec_res_b[,1:4] <- exp(prec_res_b[,1:4])
+prec_res_b$expected <- c(sim_data$tmu, sim_data$tsd)
 prec_res_b$delta <- prec_res_b$mean - prec_res_b$expected
 prec_res_b
 plot(prec_res_b$mean[grep("tmu\\[", rownames(prec_res_b))],
@@ -135,13 +147,7 @@ plot(prec_res_b$mean[grep("tmu\\[", rownames(prec_res_b))],
                       prec_res_b$expected[grep("tmu\\[", rownames(prec_res_b))]))),
      ylim = c(range(c(prec_res_b$mean[grep("tmu\\[", rownames(prec_res_b))],
                       prec_res_b$expected[grep("tmu\\[", rownames(prec_res_b))]))))
-# Chain 1 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-# Chain 1 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/jd/hdd9v5xd2zs_296j2ksd9px80000gp/T/RtmpfPuBo6/model-1255364556076.stan', line 32, column 4 to column 36)
-# Chain 1 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-# Chain 1 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-# Chain 1 
-#Warning: 2 of 500 (0.0%) transitions ended with a divergence.
-#See https://mc-stan.org/misc/warnings for details.
+
 
 # Now do test with multiple simulations to see how consistently is getting the expected values
 n_simulations <- 30
@@ -171,9 +177,9 @@ for (s in seq_len(n_simulations)) {
     m <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = dat, rstan_out = FALSE)
 
     prec_res <- precis(m, 2)
-    prec_res$expected <- c(sim_data$tmu, sim_data$tsd, sim_data$tomax,
-                        sim_data$p, sim_data$mu_tmu, sim_data$sigma_tmu,
-                        sim_data$mu_tsd, sim_data$sigma_tsd)
+    prec_res <- prec_res[grepl("tmu|tsd", rownames(prec_res)),]
+    prec_res[,1:4] <- exp(prec_res[,1:4])
+    prec_res$expected <- c(sim_data$tmu, sim_data$tsd)
     prec_res$delta <- prec_res$mean - prec_res$expected
     results_list[[s]] <- prec_res
 }
@@ -197,11 +203,3 @@ plot(tsds, tsds_e, col = "#1c57be6b", pch = 19,
      main = "Estimated vs Expected tsd",
      xlim = c(range(c(tsds, tsds_e))),
      ylim = c(range(c(tsds, tsds_e))))
-
-mu <- results_list$mean[grep("mu_tmu", rownames(results_list))]
-mu_e <- results_list$expected[grep("mu_tmu", rownames(results_list))]
-
-boxplot(mu,
-       main = "Estimated mu_tmu",
-       ylab = "Estimated mu_tmu")
-abline(h = mu_e[1], col = "blue", lwd = 2, lty = 3)
