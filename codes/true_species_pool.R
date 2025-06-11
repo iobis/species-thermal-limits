@@ -87,7 +87,7 @@ m <- cstan(file = paste0("codes/model5.stan"), data = dat, rstan_out = FALSE)
 prec_res <- precis(m, 2)
 
 # Plot species
-plot_sp <- function(sid) {
+plot_sp <- function(sid, prec_res, main_b = NULL) {
 
     sp_name <- levels(as.factor(final_ds$species))[sid]
 
@@ -98,7 +98,7 @@ plot_sp <- function(sid) {
     y <- dnorm(x, mean = mean_val, sd = sd_val)
 
     plot(x, y, type = "l", lwd = 2, col = "blue",
-        main = sp_name, xlab = "Value", ylab = "Density")
+        main = paste(sp_name, main_b), xlab = "Value", ylab = "Density")
 
     sp_ex_dat <- final_ds[final_ds$species == sp_name,]
     data_mean <- mean(sp_ex_dat$sst[sp_ex_dat$presence == 1])
@@ -123,16 +123,19 @@ plot_sp <- function(sid) {
 }
 
 # Use the ID to plot a specific species
-plot_sp(1)
-plot_sp(2)
-plot_sp(3)
-plot_sp(4)
-prec_res1 <- prec_res
+plot_sp(1, prec_res)
+plot_sp(2, prec_res)
+plot_sp(3, prec_res)
+plot_sp(4, prec_res)
 
+# Test with new model with partial pooling
 m6 <- cstan(file = paste0("codes/model6.stan"), data = dat, rstan_out = FALSE)
 
-prec_res <- precis(m6, 2)
-plot_sp(7)
+prec_res_m6 <- precis(m6, 2)
+
+par(mfrow = c(1,2))
+plot_sp(1, prec_res)
+plot_sp(1, prec_res_m6, main_b = "Model 6")
 
 # With less absences
 species_list <- split(final_ds, final_ds$species)
@@ -163,51 +166,21 @@ dat <- list(
     sst = df_subsampled$sst,
     y = df_subsampled$presence
 )
-m2 <- cstan(file = paste0("codes/model5.stan"), data = dat, rstan_out = FALSE)
+m_lab <- cstan(file = paste0("codes/model5.stan"), data = dat, rstan_out = FALSE)
 
-prec_res2 <- precis(m2, 2)
+prec_res_lab <- precis(m_lab, 2)
 
-plot_sp2 <- function(sid) {
+m6_lab <- cstan(file = paste0("codes/model6.stan"), data = dat, rstan_out = FALSE)
 
-    sp_name <- levels(as.factor(final_ds$species))[sid]
-
-    mean_val <- prec_res2$mean[row.names(prec_res2) == paste0("tmu[", sid, "]")]
-    sd_val <- prec_res2$mean[row.names(prec_res2) == paste0("tsd[", sid, "]")]
-    
-    x <- seq(mean_val - 4 * sd_val, mean_val + 4 * sd_val, length.out = 100)
-    y <- dnorm(x, mean = mean_val, sd = sd_val)
-
-    plot(x, y, type = "l", lwd = 2, col = "blue",
-        main = sp_name, xlab = "Value", ylab = "Density")
-
-    sp_ex_dat <- final_ds[final_ds$species == sp_name,]
-    data_mean <- mean(sp_ex_dat$sst[sp_ex_dat$presence == 1])
-
-    abline(v = data_mean, col = "orange")
-
-    sp_dat <- thermal_limits[thermal_limits$Species == sp_name,]
-
-    abline(v = sp_dat$mean_CT_max, col = "#ff0073")
-    abline(v = sp_dat$bo_sst_mean, col = "#343434")
-    abline(v = sp_dat$bo_sst_q95, col = "#00a1d2")
-    legend("topright",                          # Position
-       legend = c("Data mean", "CT max", "Paper mean", "Paper95"),  # Labels
-       col = c("orange", "#ff0073", "#343434", "#00a1d2"),               # Colors
-       lty = 1, 
-       lwd = 2, 
-       bty = "n") 
-
-    cli::cli_h1(sp_name)
-    print(sp_dat[,c("mean_CT_max", "bo_sst_q5", "bo_sst_mean", "bo_sst_q95")])
-    return(invisible(NULL))
-}
+prec_res_m6_lab <- precis(m6_lab, 2)
 
 # Use the ID to plot a specific species
-plot_sp2(1)
-plot_sp(1)
+par(mfrow = c(1,2))
+plot_sp(1, prec_res_lab)
+plot_sp(1, prec_res_m6_lab, main_b = "Model 6")
 
-plot_sp2(2)
-plot_sp(2)
+plot_sp(2, prec_res_lab)
+plot_sp(2, prec_res_m6_lab, main_b = "Model 6")
 
-plot_sp2(3)
-plot_sp(3)
+plot_sp(3, prec_res_lab)
+plot_sp(3, prec_res_m6_lab, main_b = "Model 6")
