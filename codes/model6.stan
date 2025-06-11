@@ -1,5 +1,6 @@
 // basic occupancy model with thermal tolerance function
 // flexible maximum occupancy probability for each species
+// add partial pooling across species
 data{
     int N;
     int N_spp;
@@ -8,41 +9,30 @@ data{
     array[N] int y; // 0/1 obs
 }
 parameters{
-    vector<lower=0>[N_spp] tmu;  // temp mean for each species
-    vector<lower=0>[N_spp] tsd;  // temp sd for each species
+    vector[N_spp] log_tmu;  // temp mean for each species
+    vector[N_spp] log_tsd;  // temp sd for each species
     vector<lower=0,upper=1>[N_spp] tomax; // max occupancy prob
     real<lower=0,upper=1> p;    // detection probability
-
-    // Hyperparameters for partial pooling
-    real mu_tmu;
-    real<lower=0> sigma_tmu;
-
-    real mu_tsd;
-    real<lower=0> sigma_tsd;
+    // pooling parameters - starting simple with no covariance matrix
+    vector[2] spp_means; // mean values for each species parameter
+    vector<lower=0>[2] spp_sds; // standard deviations for each species parameter
 }
 model{
-    // Hyperpriors
-    mu_tmu ~ normal(20, 5);
-    sigma_tmu ~ normal(0, 2.5);
-
-    mu_tsd ~ normal(5, 2);
-    sigma_tsd ~ normal(0, 2.5);
-
-    // Species-level priors with partial pooling
-    tmu ~ normal(mu_tmu, sigma_tmu);
-    tsd ~ normal(mu_tsd, sigma_tsd);
-
     p ~ beta(2,2);
+    tomax ~ beta(5,1);
     //tmu ~ normal(20,3);
     //tsd ~ normal(5,1);
-    tomax ~ beta(5,1);
+    spp_means[1] ~ lognormal(20,3);
+    spp_means[2] ~ lognormal(5,1);
+    spp_sds ~ exponential(1);
+    log_tmu ~ normal( spp_means[1] , spp_sds[1] );
+    log_tsd ~ normal( spp_means[2] , spp_sds[2] );
 
     // loop over surveys
     for ( i in 1:N ) {
         // prob of occupancy given suitability
         //real q = exp( -0.5*(( sst[i] - tmu[sid[i]] ) / tsd[sid[i]])^2 );
-        int s = sid[i];
-        real log_q = -0.5 * square((sst[i] - tmu[s]) / tsd[s]) + log(tomax[s]);
+        real log_q =  -0.5*(( sst[i] - exp(log_tmu[sid[i]]) ) / exp(log_tsd[sid[i]]))^2 + log(tomax[sid[i]]) ;
         //real q = 0.5;
         // check survey
         if ( y[i]==1 )
