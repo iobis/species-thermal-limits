@@ -67,10 +67,10 @@ library(dplyr)
 stan_model_version <- 6
 
 sim_data <- sim_dataset_pool(
-    N = 1000,
-    n_sp = 10,
+    N = 2000,
+    n_sp = 20,
     p = 0.5,
-    mu_tmu = 20,
+    mu_tmu = 25,
     sigma_tmu = 3,
     mu_tsd = 5,
     sigma_tsd = 1,
@@ -126,16 +126,32 @@ prec_res_b$expected <- c(sim_data_b$tmu, sim_data_b$tsd, sim_data_b$tomax,
                        sim_data_b$mu_tsd, sim_data_b$sigma_tsd)
 prec_res_b$delta <- prec_res_b$mean - prec_res_b$expected
 prec_res_b
+plot(prec_res_b$mean[grep("tmu\\[", rownames(prec_res_b))],
+     prec_res_b$expected[grep("tmu\\[", rownames(prec_res_b))],
+     col = "#1c57be6b", pch = 19,
+     xlab = "Estimated tmu", ylab = "Expected tmu",
+     main = "Estimated vs Expected tmu",
+     xlim = c(range(c(prec_res_b$mean[grep("tmu\\[", rownames(prec_res_b))],
+                      prec_res_b$expected[grep("tmu\\[", rownames(prec_res_b))]))),
+     ylim = c(range(c(prec_res_b$mean[grep("tmu\\[", rownames(prec_res_b))],
+                      prec_res_b$expected[grep("tmu\\[", rownames(prec_res_b))]))))
+# Chain 1 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+# Chain 1 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/jd/hdd9v5xd2zs_296j2ksd9px80000gp/T/RtmpfPuBo6/model-1255364556076.stan', line 32, column 4 to column 36)
+# Chain 1 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+# Chain 1 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+# Chain 1 
+#Warning: 2 of 500 (0.0%) transitions ended with a divergence.
+#See https://mc-stan.org/misc/warnings for details.
 
 # Now do test with multiple simulations to see how consistently is getting the expected values
-n_simulations <- 20
+n_simulations <- 30
 results_list <- vector("list", n_simulations)
 for (s in seq_len(n_simulations)) {
     message("\nSimulation ", s, "\n\n")
 
     sim_data <- sim_dataset_pool(
-        N = 1000,
-        n_sp = 10,
+        N = 2000,
+        n_sp = 20,
         p = 0.5,
         mu_tmu = 20,
         sigma_tmu = 3,
@@ -164,8 +180,8 @@ for (s in seq_len(n_simulations)) {
 
 results_list <- do.call(rbind, results_list)
 
-tmus <- results_list$mean[grep("tmu", rownames(results_list))]
-tmus_e <- results_list$expected[grep("tmu", rownames(results_list))]
+tmus <- results_list$mean[grep("tmu\\[", rownames(results_list))]
+tmus_e <- results_list$expected[grep("tmu\\[", rownames(results_list))]
 
 plot(tmus, tmus_e, col = "#1c57be6b", pch = 19,
      xlab = "Estimated tmu", ylab = "Expected tmu",
@@ -173,8 +189,8 @@ plot(tmus, tmus_e, col = "#1c57be6b", pch = 19,
      xlim = c(range(c(tmus, tmus_e))),
      ylim = c(range(c(tmus, tmus_e))))
 
-tsds <- results_list$mean[grep("tsd", rownames(results_list))]
-tsds_e <- results_list$expected[grep("tsd", rownames(results_list))]
+tsds <- results_list$mean[grep("tsd\\[", rownames(results_list))]
+tsds_e <- results_list$expected[grep("tsd\\[", rownames(results_list))]
 
 plot(tsds, tsds_e, col = "#1c57be6b", pch = 19,
      xlab = "Estimated tsd", ylab = "Expected tsd",
@@ -185,8 +201,7 @@ plot(tsds, tsds_e, col = "#1c57be6b", pch = 19,
 mu <- results_list$mean[grep("mu_tmu", rownames(results_list))]
 mu_e <- results_list$expected[grep("mu_tmu", rownames(results_list))]
 
-plot(mu, mu_e, col = "#1c57be6b", pch = 19,
-     xlab = "Estimated mu", ylab = "Expected mu",
-     main = "Estimated vs Expected global mu",
-     xlim = c(range(c(mu, mu_e))),
-     ylim = c(range(c(mu, mu_e))))
+boxplot(mu,
+       main = "Estimated mu_tmu",
+       ylab = "Estimated mu_tmu")
+abline(h = mu_e[1], col = "blue", lwd = 2, lty = 3)
