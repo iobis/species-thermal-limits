@@ -124,9 +124,8 @@ prec_res_b <- precis(m_b, 2)
 prec_res_b$expected <- c(sim_data_b$tmu, sim_data_b$tsd, sim_data_b$tomax,
                        sim_data_b$p, sim_data_b$mu_tmu, sim_data_b$sigma_tmu,
                        sim_data_b$mu_tsd, sim_data_b$sigma_tsd)
-prec_res$delta <- prec_res$mean - prec_res$expected
-prec_res
-
+prec_res_b$delta <- prec_res_b$mean - prec_res_b$expected
+prec_res_b
 
 # Now do test with multiple simulations to see how consistently is getting the expected values
 n_simulations <- 20
