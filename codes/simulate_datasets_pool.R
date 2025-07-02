@@ -203,3 +203,73 @@ plot(tsds, tsds_e, col = "#1c57be6b", pch = 19,
      main = "Estimated vs Expected tsd",
      xlim = c(range(c(tsds, tsds_e))),
      ylim = c(range(c(tsds, tsds_e))))
+
+
+
+# Test varying the number of points of a single species and see if this species
+# approximates the TMU
+sim_data_base <- sim_dataset_pool(
+    N = 2000,
+    n_sp = 20,
+    p = 0.5,
+    mu_tmu = 25,
+    sigma_tmu = 3,
+    mu_tsd = 5,
+    sigma_tsd = 1,
+    site_max =  31
+)
+
+far_sp <- which.max(abs(sim_data_base$tmu - sim_data_base$mu_tmu))
+remove_factor <- seq(0, 0.9, by = 0.1)
+results_var_n <- vector("list", length(remove_factor))
+
+for (i in 1:10) {
+
+    to_keep <- sample(1:100, 100 - round((100 * remove_factor[i])), replace = FALSE)
+
+    if (length(to_keep) < 100) {
+        sim_data <- sim_data_base
+        sp_index <- which(sim_data$dataset$sid == far_sp)
+        sim_data$dataset <- sim_data$dataset[-sp_index[-to_keep],] 
+    } else {
+        sim_data <- sim_data_base
+    }
+
+    message("\n\n============ Simulation ", i, " ============\n\n")
+
+    dat <- list(
+        N = nrow(sim_data$dataset),
+        N_spp = length(unique(sim_data$dataset$sid)),
+        sid = as.integer(as.factor(sim_data$dataset$sid)),
+        sst = sim_data$dataset$sst,
+        y = sim_data$dataset$y
+    )
+
+    m <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = dat, rstan_out = FALSE)
+
+    prec_res <- precis(m, 2)
+    prec_res <- prec_res[grepl("tmu|tsd", rownames(prec_res)),]
+    prec_res[,1:4] <- exp(prec_res[,1:4])
+    prec_res$expected <- c(sim_data$tmu, sim_data$tsd)
+    prec_res$delta <- prec_res$mean - prec_res$expected
+
+    results_var_n[[i]] <- prec_res
+}
+
+par(mfrow = c(2, 5))
+
+for (i in seq_along(results_var_n)) {
+    prec_res <- results_var_n[[i]]
+    plot(prec_res$mean[grep("tmu\\[", rownames(prec_res))],
+        prec_res$expected[grep("tmu\\[", rownames(prec_res))],
+        col = "#1c57be6b", pch = 19,
+        xlab = "Estimated tmu", ylab = "Expected tmu",
+        xlim = c(range(c(prec_res$mean[grep("tmu\\[", rownames(prec_res))],
+                        prec_res$expected[grep("tmu\\[", rownames(prec_res))]))),
+        ylim = c(range(c(prec_res$mean[grep("tmu\\[", rownames(prec_res))],
+                        prec_res$expected[grep("tmu\\[", rownames(prec_res))]))))
+    points(prec_res$mean[grep(paste0("tmu\\[", far_sp, "]"), rownames(prec_res))],
+        prec_res$expected[grep(paste0("tmu\\[", far_sp, "]"), rownames(prec_res))],
+        col = "#e36a00", pch = 19, cex = 1.5) 
+    abline(v = 25)
+}
