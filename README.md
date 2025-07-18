@@ -130,12 +130,10 @@ Model 6 adds partial pooling to Model 5 (a varying effects model). That way we e
 
 We model species-level thermal preferences hierarchically:
 
-<div style="text-align: center;">
-$\text{log\_tmu}_j \sim \mathcal{N}(\mu_{\text{tmu}}, \sigma_{\text{tmu}})$ [Temperature optimum for species $j$]  
-$\text{log\_tsd}_j \sim \mathcal{N}(\mu_{\text{tsd}}, \sigma_{\text{tsd}})$ [Thermal tolerance (SD) for species $j$]  
-$\theta_j \sim \text{Beta}(5, 1)$ [Maximum occupancy probability for species $j$]  
+$\text{log tmu} \_j \sim \mathcal{N}(\mu_{\text{tmu}}, \sigma_{\text{tmu}})$ [Temperature optimum for species $j$]  
+$\text{log tsd} \_j \sim \mathcal{N}(\mu_{\text{tsd}}, \sigma_{\text{tsd}})$ [Thermal tolerance (SD) for species $j$]  
+$\theta \_j \sim \text{Beta}(5, 1)$ [Maximum occupancy probability for species $j$]  
 $p \sim \text{Beta}(2, 2)$ [Detection probability]  
-</div>
 
 Where:
 
@@ -145,15 +143,15 @@ Where:
 
 We interpret:
 
-- $\exp(\text{log\_tmu}_j)$ as the thermal optimum for species $j$
-- $\exp(\text{log\_tsd}_j)$ as the thermal tolerance (SD) for species $j$
+- $\exp(\text{log tmu} \_j)$ as the thermal optimum for species $j$
+- $\exp(\text{log tsd} \_j)$ as the thermal tolerance (SD) for species $j$
 - $\theta_j = \text{tomax}_j$ as the maximum occupancy probability
 
 For survey $i$ and species $j = \text{sid}[i]$, define:
 
-$$
+``` math
 \log q_i = -\frac{1}{2} \left( \frac{\text{sst}_i - \exp(\text{log\_tmu}_j)}{\exp(\text{log\_tsd}_j)} \right)^2 + \log(\theta_j)
-$$
+```
 
 **What we tested**
 
@@ -175,18 +173,18 @@ Considering the following parameters:
 - $\mathbf{z}_j \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_3)$ — standard normal latent variables  
 - $\boldsymbol{\Sigma} = \text{diag}(\boldsymbol{\sigma}) \cdot \mathbf{R} \cdot \text{diag}(\boldsymbol{\sigma})$ — full covariance matrix  
 - $\mathbf{L}_{\mathbf{R}} \sim \text{LKJ}(4)$ — Cholesky factor of correlation matrix $\mathbf{R}$ 
-- $\boldsymbol{\mu} = \text{spp\_means} \in \mathbb{R}^3$
+- $\boldsymbol{\mu} = \text{spp}\_{means} \in \mathbb{R}^3$
 
 For each species $j$, we compute:
 
-$$
+``` math
 \begin{aligned}
 \mathbf{v}_j &= \boldsymbol{\mu} + \mathbf{L}_{\boldsymbol{\Sigma}} \mathbf{z}_j \\
 \log \mu_j &= v_{j,1} \\
 \log \sigma_j &= v_{j,2} \\
 \theta_j &= \text{logit}^{-1}(v_{j,3})
 \end{aligned}
-$$
+```
 
 Where:
 
