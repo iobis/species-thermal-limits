@@ -65,3 +65,7 @@ results/
 model[0-9]
 !model[0-9].stan
 *.RData
+
+# Ignore README previews
+README.html
+README_files/
