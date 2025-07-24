@@ -3,15 +3,15 @@
 # Authors: Silas Principe, Richard McElreath, Pieter Provoost
 # Contact: s.principe@unesco.org
 #
-############################### Tests for model 1 ##############################
+############################### Tests for model 4 ##############################
 
 library(rethinking)
 source("functions/sim_dataset.R")
 set.seed(2025)
 
 # Settings
-stan_model_version <- 1
-n_species <- 5 # More than 5 species is failing in this version
+stan_model_version <- 4
+n_species <- 30 # Now more species work fine
 n_pts <- 100
 
 # Normal conditions ------
@@ -138,11 +138,6 @@ fish_data <- fish_data[,c("species", "sst", "presence")]
 colnames(fish_data) <- c("sid", "sst", "y")
 fish_data$species <- fish_data$sid
 fish_data$sid <- as.integer(as.factor(fish_data$sid))
-# This model is failing when many species, restricting to 5
-n_presences <- aggregate(fish_data$y, list(fish_data$sid), sum)[,2]
-n_absences <- aggregate(fish_data$y, list(fish_data$sid), length)[,2] - n_presences
-fish_data <- fish_data[fish_data$sid %in% unique(fish_data$sid)[n_presences > 5],]
-fish_data <- fish_data[fish_data$sid %in% sample(unique(fish_data$sid), 5),]
 
 # Run test 4
 m4_data <- prepare_data_stan(list(dataset = fish_data))

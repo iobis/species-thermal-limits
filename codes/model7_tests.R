@@ -3,15 +3,15 @@
 # Authors: Silas Principe, Richard McElreath, Pieter Provoost
 # Contact: s.principe@unesco.org
 #
-############################### Tests for model 1 ##############################
+############################### Tests for model 7 ##############################
 
 library(rethinking)
 source("functions/sim_dataset.R")
 set.seed(2025)
 
 # Settings
-stan_model_version <- 1
-n_species <- 5 # More than 5 species is failing in this version
+stan_model_version <- 7
+n_species <- 30
 n_pts <- 100
 
 # Normal conditions ------
@@ -25,7 +25,7 @@ dataset_1 <- sim_dataset(
     sigma_tmu = 3,                               # Global sd for tmu
     mu_tsd = 5,                                  # Global mean for tsd
     sigma_tsd = 1,                               # Global sd for tsd 
-    tomax = 1,                                   # Max occupancy prob per species
+    tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
     site_min = -Inf,                             # Minimum of site (for truncation)
     site_max = Inf                               # Maximum of site (for truncation)
 )
@@ -37,7 +37,7 @@ m1_data <- prepare_data_stan(dataset_1)
 m1 <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = m1_data, rstan_out = FALSE)
 
 precis(m1, 2)
-m1_results <- extract_precis(m1, dataset_1)
+m1_results <- extract_precis(m1, dataset_1, transform = T, change_names = T)
 
 with(m1_results[m1_results$what == "tmu",],
      plot(expected, mean, pch = 19, col = "#0c76c2",
@@ -45,6 +45,12 @@ with(m1_results[m1_results$what == "tmu",],
           xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
 abline(v = 20, h = 20, lty = 2)
 summary(with(m1_results[m1_results$what == "tmu",], lm(expected ~ mean)))
+
+with(m1_results[m1_results$what == "tomax",],
+     plot(expected, mean, pch = 19, col = "#0c76c2",
+          xlab = "Expected", ylab = "Predicted", main = "tomax",
+          xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
+summary(with(m1_results[m1_results$what == "tomax",], lm(expected ~ mean)))
 
 
 # Extreme conditions - truncated ------
@@ -56,7 +62,7 @@ dataset_2 <- sim_dataset(
     sigma_tmu = 3,                               # Global sd for tmu
     mu_tsd = 5,                                  # Global mean for tsd
     sigma_tsd = 1,                               # Global sd for tsd 
-    tomax = 1,                                   # Max occupancy prob per species
+    tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
     site_min = -Inf,                             # Minimum of site (for truncation)
     site_max = 25                                # Maximum of site (for truncation)
 )
@@ -68,7 +74,7 @@ m2_data <- prepare_data_stan(dataset_2)
 m2 <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = m2_data, rstan_out = FALSE)
 
 precis(m2, 2)
-m2_results <- extract_precis(m2, dataset_2)
+m2_results <- extract_precis(m2, dataset_2, transform = T, change_names = T)
 
 with(m2_results[m2_results$what == "tmu",],
      plot(expected, mean, pch = 19, col = "#0c76c2",
@@ -89,7 +95,7 @@ dataset_3 <- sim_dataset(
     sigma_tmu = 3,                               # Global sd for tmu
     mu_tsd = 5,                                  # Global mean for tsd
     sigma_tsd = 1,                               # Global sd for tsd 
-    tomax = 1,                                   # Max occupancy prob per species
+    tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
     site_min = -Inf,                             # Minimum of site (for truncation)
     site_max = Inf,                              # Maximum of site (for truncation)
     n_presence = 50,                             # Number of presences
@@ -116,7 +122,7 @@ for (i in seq_along(n_abs)) {
     m3_data <- prepare_data_stan(dataset_mod)
     m3 <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = m3_data, rstan_out = FALSE)
 
-    results_test3[[i]] <- extract_precis(m3, dataset_3)
+    results_test3[[i]] <- extract_precis(m3, dataset_3, transform = T, change_names = T)
 }
 
 par(mfrow = c(3, 4))
@@ -138,11 +144,6 @@ fish_data <- fish_data[,c("species", "sst", "presence")]
 colnames(fish_data) <- c("sid", "sst", "y")
 fish_data$species <- fish_data$sid
 fish_data$sid <- as.integer(as.factor(fish_data$sid))
-# This model is failing when many species, restricting to 5
-n_presences <- aggregate(fish_data$y, list(fish_data$sid), sum)[,2]
-n_absences <- aggregate(fish_data$y, list(fish_data$sid), length)[,2] - n_presences
-fish_data <- fish_data[fish_data$sid %in% unique(fish_data$sid)[n_presences > 5],]
-fish_data <- fish_data[fish_data$sid %in% sample(unique(fish_data$sid), 5),]
 
 # Run test 4
 m4_data <- prepare_data_stan(list(dataset = fish_data))
@@ -153,8 +154,8 @@ m4_results <- extract_precis(m4, list(
     dataset = fish_data,
     tmu = aggregate(fish_data$sst[fish_data$y == 1], list(fish_data$sid[fish_data$y == 1]), mean)[,2],
     tsd = aggregate(fish_data$sst[fish_data$y == 1], list(fish_data$sid[fish_data$y == 1]), sd)[,2],
-    p = 0
-))
+    p = 0, mu_tmu = NA, mu_tsd = NA, sigma_tmu = NA, sigma_tsd = NA
+), transform = T, change_names = T)
 
 par(mfrow = c(1,1))
 with(m4_results[m4_results$what == "tmu",],

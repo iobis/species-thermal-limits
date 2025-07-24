@@ -149,7 +149,7 @@ prepare_data_stan <- function(dataset) {
     return(dat)
 }
 
-extract_precis <- function(model, dataset) {
+extract_precis <- function(model, dataset, transform = FALSE, change_names = FALSE) {
     precis_result <- precis(model, 2)
     rnames <- rownames(precis_result)
     #rownames(precis_result) <- NULL
@@ -162,8 +162,30 @@ extract_precis <- function(model, dataset) {
     precis_result$expected[grepl("tmu", precis_result$what)] <- dataset$tmu
     precis_result$expected[grepl("tsd", precis_result$what)] <- dataset$tsd
     if (!is.null(dataset$p)) {
-        precis_result$expected[grepl("p", precis_result$what)] <- dataset$p
+        precis_result$expected[grepl("p$", precis_result$what)] <- dataset$p
+    }
+    if (!is.null(dataset$tomax) & any(grepl("tomax", precis_result$what))) {
+        precis_result$expected[grepl("tomax", precis_result$what)] <- dataset$tomax
+    }
+    if (any(grepl("spp_", rnames))) {
+        precis_result$expected[grepl("spp_", precis_result$what)] <- c(
+            dataset$mu_tmu, dataset$mu_tsd, dataset$sigma_tmu, dataset$sigma_tsd
+        )
+    }
+    if (transform) {
+        which_transf <- which(grepl("log", rnames))
+        if (any(grepl("spp_", rnames))) {
+            which_transf <- c(which_transf, which(grepl("spp_", rnames)))
+        }
+        precis_result$mean[which_transf] <- exp(precis_result$mean[which_transf])
+        precis_result$sd[which_transf] <- exp(precis_result$sd[which_transf])
+        precis_result$`5.5%`[which_transf] <- exp(precis_result$`5.5%`[which_transf])
+        precis_result$`94.5%`[which_transf] <- exp(precis_result$`94.5%`[which_transf])
     }
     precis_result$delta <- precis_result$expected - precis_result$mean
+    if (change_names) {
+        precis_result$what <- gsub("log_tmu", "tmu", precis_result$what)
+        precis_result$what <- gsub("log_tsd", "tsd", precis_result$what)
+    }
     return(precis_result)
 }

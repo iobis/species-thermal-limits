@@ -3,15 +3,15 @@
 # Authors: Silas Principe, Richard McElreath, Pieter Provoost
 # Contact: s.principe@unesco.org
 #
-############################### Tests for model 1 ##############################
+############################### Tests for model 5 ##############################
 
 library(rethinking)
 source("functions/sim_dataset.R")
 set.seed(2025)
 
 # Settings
-stan_model_version <- 1
-n_species <- 5 # More than 5 species is failing in this version
+stan_model_version <- 5
+n_species <- 30
 n_pts <- 100
 
 # Normal conditions ------
@@ -25,7 +25,7 @@ dataset_1 <- sim_dataset(
     sigma_tmu = 3,                               # Global sd for tmu
     mu_tsd = 5,                                  # Global mean for tsd
     sigma_tsd = 1,                               # Global sd for tsd 
-    tomax = 1,                                   # Max occupancy prob per species
+    tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
     site_min = -Inf,                             # Minimum of site (for truncation)
     site_max = Inf                               # Maximum of site (for truncation)
 )
@@ -46,6 +46,12 @@ with(m1_results[m1_results$what == "tmu",],
 abline(v = 20, h = 20, lty = 2)
 summary(with(m1_results[m1_results$what == "tmu",], lm(expected ~ mean)))
 
+with(m1_results[m1_results$what == "tomax",],
+     plot(expected, mean, pch = 19, col = "#0c76c2",
+          xlab = "Expected", ylab = "Predicted", main = "tomax",
+          xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
+summary(with(m1_results[m1_results$what == "tomax",], lm(expected ~ mean)))
+
 
 # Extreme conditions - truncated ------
 dataset_2 <- sim_dataset(
@@ -56,7 +62,7 @@ dataset_2 <- sim_dataset(
     sigma_tmu = 3,                               # Global sd for tmu
     mu_tsd = 5,                                  # Global mean for tsd
     sigma_tsd = 1,                               # Global sd for tsd 
-    tomax = 1,                                   # Max occupancy prob per species
+    tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
     site_min = -Inf,                             # Minimum of site (for truncation)
     site_max = 25                                # Maximum of site (for truncation)
 )
@@ -89,7 +95,7 @@ dataset_3 <- sim_dataset(
     sigma_tmu = 3,                               # Global sd for tmu
     mu_tsd = 5,                                  # Global mean for tsd
     sigma_tsd = 1,                               # Global sd for tsd 
-    tomax = 1,                                   # Max occupancy prob per species
+    tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
     site_min = -Inf,                             # Minimum of site (for truncation)
     site_max = Inf,                              # Maximum of site (for truncation)
     n_presence = 50,                             # Number of presences
@@ -138,11 +144,6 @@ fish_data <- fish_data[,c("species", "sst", "presence")]
 colnames(fish_data) <- c("sid", "sst", "y")
 fish_data$species <- fish_data$sid
 fish_data$sid <- as.integer(as.factor(fish_data$sid))
-# This model is failing when many species, restricting to 5
-n_presences <- aggregate(fish_data$y, list(fish_data$sid), sum)[,2]
-n_absences <- aggregate(fish_data$y, list(fish_data$sid), length)[,2] - n_presences
-fish_data <- fish_data[fish_data$sid %in% unique(fish_data$sid)[n_presences > 5],]
-fish_data <- fish_data[fish_data$sid %in% sample(unique(fish_data$sid), 5),]
 
 # Run test 4
 m4_data <- prepare_data_stan(list(dataset = fish_data))
