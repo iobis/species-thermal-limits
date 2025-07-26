@@ -103,6 +103,7 @@ n_abs <- seq(50, 0, -5)
 results_test3 <- vector("list", length(n_abs))
 dataset_mod <- dataset_3
 for (i in seq_along(n_abs)) {
+    message("\nRunning ", i, " out of ", length(n_abs), "\n")
     groups <- split(dataset_mod$dataset, dataset_mod$dataset$sid)
     groups <- lapply(groups, \(x){
         p <- x[x$y == 1,]

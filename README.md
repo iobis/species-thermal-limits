@@ -82,6 +82,8 @@ The effect of different priors on the model performance for those two previous t
 - Model functionality with simulated data under normal conditions
 - Model functionality with simulated data under extreme conditions (i.e. truncated distribution)
 
+We also do the test with real species, but is not the focus of this model.
+
 ### Model 4
 
 **Description**
@@ -122,7 +124,7 @@ $$
 
 **What we tested**
 
-Same tests as Model 1, but now that simulation accounts for different maximum occupancy probabilities per species.
+Same tests as Model 1, but now the simulation accounts for different maximum occupancy probabilities per species.
 
 ### Model 6
 

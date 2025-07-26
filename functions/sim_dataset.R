@@ -168,14 +168,26 @@ extract_precis <- function(model, dataset, transform = FALSE, change_names = FAL
         precis_result$expected[grepl("tomax", precis_result$what)] <- dataset$tomax
     }
     if (any(grepl("spp_", rnames))) {
-        precis_result$expected[grepl("spp_", precis_result$what)] <- c(
-            dataset$mu_tmu, dataset$mu_tsd, dataset$sigma_tmu, dataset$sigma_tsd
-        )
+        if (any(grepl("sigma", rnames))) {
+            precis_result$expected[grepl("spp_", precis_result$what)] <- c(
+                dataset$mu_tmu, dataset$mu_tsd, NA
+            )
+            precis_result$expected[grepl("sigma", precis_result$what)] <- c(
+                dataset$sigma_tmu, dataset$sigma_tsd, NA
+            )
+        } else {
+            precis_result$expected[grepl("spp_", precis_result$what)] <- c(
+                dataset$mu_tmu, dataset$mu_tsd, dataset$sigma_tmu, dataset$sigma_tsd
+            )
+        }
     }
     if (transform) {
         which_transf <- which(grepl("log", rnames))
         if (any(grepl("spp_", rnames))) {
             which_transf <- c(which_transf, which(grepl("spp_", rnames)))
+        }
+        if (any(grepl("sigma", rnames))) {
+            which_transf <- c(which_transf, which(grepl("sigma", rnames)))
         }
         precis_result$mean[which_transf] <- exp(precis_result$mean[which_transf])
         precis_result$sd[which_transf] <- exp(precis_result$sd[which_transf])
