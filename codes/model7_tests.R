@@ -52,6 +52,38 @@ with(m1_results[m1_results$what == "tomax",],
           xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
 summary(with(m1_results[m1_results$what == "tomax",], lm(expected ~ mean)))
 
+# Compare with model 5
+m1_vs_5 <- cstan(file = "codes/model5.stan", data = m1_data, rstan_out = FALSE)
+
+precis(m1_vs_5, 2)
+m1_vs_5_results <- extract_precis(m1_vs_5, dataset_1, transform = T, change_names = T)
+
+# Mean
+tmu_m1 <- m1_results$mean[m1_results$what == "tmu"]
+tmu_m1_vs_5 <- m1_vs_5_results$mean[m1_vs_5_results$what == "tmu"]
+d1_n_presence <- aggregate(dataset_1$dataset$y, list(dataset_1$dataset$sid), sum)[,2]
+
+plot(tmu_m1[order(d1_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m1, tmu_m1_vs_5)))
+points(tmu_m1_vs_5[order(d1_n_presence)], col = "#005e99")
+abline(h = dataset_1$mu_tmu, lty = 2)
+legend("topright",
+       legend = c("Model 7", "Model 5", "Global mu"),
+       col = c("#005e99", "#005e99", "black"),
+       pch = c(19, 1, NA),
+       lty = c(NA, NA, 2))
+
+# Delta
+tmu_m1 <- m1_results$delta[m1_results$what == "tmu"]
+tmu_m1_vs_5 <- m1_vs_5_results$delta[m1_vs_5_results$what == "tmu"]
+
+plot(tmu_m1[order(d1_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m1, tmu_m1_vs_5)))
+points(tmu_m1_vs_5[order(d1_n_presence)], col = "#005e99")
+abline(h = 0, lty = 2)
+legend("topright",
+       legend = c("Model 7", "Model 5"),
+       col = c("#005e99", "#005e99"),
+       pch = c(19, 1))
+
 
 # Extreme conditions - truncated ------
 dataset_2 <- sim_dataset(
@@ -64,7 +96,7 @@ dataset_2 <- sim_dataset(
     sigma_tsd = 1,                               # Global sd for tsd 
     tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
     site_min = -Inf,                             # Minimum of site (for truncation)
-    site_max = 25                                # Maximum of site (for truncation)
+    site_max = 26                                # Maximum of site (for truncation)
 )
 
 get_dataset_stats(dataset_2)
@@ -82,6 +114,38 @@ with(m2_results[m2_results$what == "tmu",],
           xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
 abline(v = 20, h = 20, lty = 2)
 summary(with(m2_results[m2_results$what == "tmu",], lm(expected ~ mean)))
+
+# Compare with model 5
+m2_vs_5 <- cstan(file = "codes/model5.stan", data = m2_data, rstan_out = FALSE)
+
+precis(m2_vs_5, 2)
+m2_vs_5_results <- extract_precis(m2_vs_5, dataset_2, transform = T, change_names = T)
+
+# Mean
+tmu_m2 <- m2_results$mean[m2_results$what == "tmu"]
+tmu_m2_vs_5 <- m2_vs_5_results$mean[m2_vs_5_results$what == "tmu"]
+d2_n_presence <- aggregate(dataset_2$dataset$y, list(dataset_2$dataset$sid), sum)[,2]
+
+plot(tmu_m2[order(d2_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m2, tmu_m2_vs_5)))
+points(tmu_m2_vs_5[order(d2_n_presence)], col = "#005e99")
+abline(h = dataset_2$mu_tmu, lty = 2)
+legend("topright",
+       legend = c("Model 7", "Model 5", "Global mu"),
+       col = c("#005e99", "#005e99", "black"),
+       pch = c(19, 1, NA),
+       lty = c(NA, NA, 2))
+
+# Delta
+tmu_m2 <- m2_results$delta[m2_results$what == "tmu"]
+tmu_m2_vs_5 <- m2_vs_5_results$delta[m2_vs_5_results$what == "tmu"]
+
+plot(tmu_m2[order(d2_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m2, tmu_m2_vs_5)))
+points(tmu_m2_vs_5[order(d2_n_presence)], col = "#005e99")
+abline(h = 0, lty = 2)
+legend("topright",
+       legend = c("Model 7", "Model 5"),
+       col = c("#005e99", "#005e99"),
+       pch = c(19, 1))
 
 
 # Varying number of absences ------
@@ -107,6 +171,7 @@ get_dataset_stats(dataset_3)
 # Run test 3
 n_abs <- seq(50, 0, -5)
 results_test3 <- vector("list", length(n_abs))
+stan_data <- vector("list", length(n_abs))
 dataset_mod <- dataset_3
 for (i in seq_along(n_abs)) {
     message("\nRunning ", i, " out of ", length(n_abs), "\n")
@@ -121,6 +186,7 @@ for (i in seq_along(n_abs)) {
     })
     dataset_mod$dataset <- as.data.frame(do.call("rbind", groups))
     m3_data <- prepare_data_stan(dataset_mod)
+    stan_data[[i]] <- m3_data
     m3 <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = m3_data, rstan_out = FALSE)
 
     results_test3[[i]] <- extract_precis(m3, dataset_3, transform = T, change_names = T)
@@ -135,6 +201,53 @@ for (i in seq_along(results_test3)) {
           xlim = range(c(mean, expected)), ylim = range(c(mean, expected)),
           main = paste0(n_abs[i], " - rsq: ", round(summary(l)$adj.r.squared, 2))))
     abline(v = 20, h = 20, lty = 2)
+}
+
+# Compare with model 5
+results_test3_m5 <- vector("list", length(stan_data))
+for (i in seq_along(stan_data)) {
+    m_temp <- cstan(file = "codes/model5.stan", data = stan_data[[i]], rstan_out = FALSE)
+    results_test3_m5[[i]] <- extract_precis(m_temp, dataset_3, transform = T, change_names = T)
+}
+
+# Mean
+par(mfrow = c(3, 4))
+for (i in seq_along(stan_data)) {
+    m3_vs_5_results <- results_test3_m5[[i]]
+    m3_results <- results_test3[[i]]
+
+    tmu_m3 <- m3_results$mean[m3_results$what == "tmu"]
+    tmu_m3_vs_5 <- m3_vs_5_results$mean[m3_vs_5_results$what == "tmu"]
+    d3_n_presence <- aggregate(dataset_3$dataset$y, list(dataset_3$dataset$sid), sum)[,2]
+
+    plot(tmu_m3[order(d3_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m3, tmu_m3_vs_5)))
+    points(tmu_m3_vs_5[order(d3_n_presence)], col = "#005e99")
+    abline(h = dataset_3$mu_tmu, lty = 2)
+    legend("topright",
+        legend = c("Model 7", "Model 5", "Global mu"),
+        col = c("#005e99", "#005e99", "black"),
+        pch = c(19, 1, NA),
+        lty = c(NA, NA, 2))
+}
+
+# Delta
+par(mfrow = c(3, 4))
+for (i in seq_along(stan_data)) {
+    m3_vs_5_results <- results_test3_m5[[i]]
+    m3_results <- results_test3[[i]]
+
+    tmu_m3 <- m3_results$delta[m3_results$what == "tmu"]
+    tmu_m3_vs_5 <- m3_vs_5_results$delta[m3_vs_5_results$what == "tmu"]
+    d3_n_presence <- aggregate(dataset_3$dataset$y, list(dataset_3$dataset$sid), sum)[,2]
+
+    plot(tmu_m3[order(d3_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m3, tmu_m3_vs_5)))
+    points(tmu_m3_vs_5[order(d3_n_presence)], col = "#005e99")
+    abline(h = dataset_3$mu_tmu, lty = 2)
+    legend("topright",
+        legend = c("Model 7", "Model 5", "Global mu"),
+        col = c("#005e99", "#005e99", "black"),
+        pch = c(19, 1, NA),
+        lty = c(NA, NA, 2))
 }
 
 
