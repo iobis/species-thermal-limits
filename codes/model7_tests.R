@@ -52,6 +52,11 @@ with(m1_results[m1_results$what == "tomax",],
           xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
 summary(with(m1_results[m1_results$what == "tomax",], lm(expected ~ mean)))
 
+with(m1_results[m1_results$what == "tmu",],
+     plot(y = delta, x = dataset_1$tmu, xlab = "tmu", ylab = "Delta", pch = 19))
+abline(h = 0, lty = 2)
+abline(v = 20, lty = 2, col = "blue")
+
 # Compare with model 5
 m1_vs_5 <- cstan(file = "codes/model5.stan", data = m1_data, rstan_out = FALSE)
 
