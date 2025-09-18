@@ -18,7 +18,8 @@ sim_dataset <- function(
     site_min = -Inf,                            # Minimum of site (for truncation)
     site_max = Inf,                             # Maximum of site (for truncation)
     n_presence = NULL,                          # Number of presences
-    n_absence = NULL                            # Number of absences
+    n_absence = NULL,                           # Number of absences
+    perc_sst_inc = 0                            # Percentage of increase in SST SD
 ) {
 
     tmu <- round(rnorm(n_sp, mu_tmu, sigma_tmu), 1)
@@ -44,7 +45,7 @@ sim_dataset <- function(
             k <- 1
             while(!condition_met & k <= max_try) {
                 dataset <- .run_sim_ds(N = N_try, n_sp = 1, tmu[sp], tsd[sp],
-                                       tomax[sp], p, site_min, site_max)
+                                       tomax[sp], p, site_min, site_max, perc_sst_inc)
                 pres_list[[k]] <- dataset[dataset$y == 1,]
                 abs_list[[k]] <- dataset[dataset$y == 0,]
                 total_pres <- nrow(do.call("rbind", pres_list))
@@ -68,7 +69,7 @@ sim_dataset <- function(
         dataset <- as.data.frame(do.call("rbind", species_dataset))
         rownames(dataset) <- seq_len(nrow(dataset))
     } else {
-        dataset <- .run_sim_ds(N, n_sp, tmu, tsd, tomax, p, site_min, site_max)
+        dataset <- .run_sim_ds(N, n_sp, tmu, tsd, tomax, p, site_min, site_max, perc_sst_inc)
     }
 
     list(
@@ -84,7 +85,7 @@ sim_dataset <- function(
     )
 }
 
-.run_sim_ds <- function(N, n_sp, tmu, tsd, tomax, p, site_min, site_max) {
+.run_sim_ds <- function(N, n_sp, tmu, tsd, tomax, p, site_min, site_max, perc_sst_inc) {
     # Species IDs
     sid <- rep(seq_len(n_sp), each = N / n_sp)
 
@@ -92,7 +93,7 @@ sim_dataset <- function(
     if (site_min != -Inf || site_max != Inf) {
         sst <- truncnorm::rtruncnorm(n = N, a = site_min, b = site_max, mean = tmu[sid], sd = tsd[sid])
     } else {
-        sst <- rnorm(N, mean = tmu[sid], sd = tsd[sid])
+        sst <- rnorm(N, mean = tmu[sid], sd = (tsd[sid] + (tsd[sid] * perc_sst_inc)))
     }
 
     # Calculate occupancy probability (Gaussian suitability * tomax)
