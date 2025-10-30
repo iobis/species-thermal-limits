@@ -108,13 +108,19 @@ for (i in seq_along(range_opt)) {
 par(mfrow = c(2,3))
 for (i in seq_along(datasets_opt_2)) {
     true_values <- exp(datasets_opt_2[[i]]$raw$f[, 1])
-    estimated_values <- exp(apply(results_opt_2[[i]]$f, 2:3, mean)[,1])
+    estimated_values <- data.frame(
+        q_025 = exp(apply(results_opt_2[[i]]$f, 2:3, quantile, .25))[,1],
+        median = exp(apply(results_opt_2[[i]]$f, 2:3, median)[,1]),
+        q_075 = exp(apply(results_opt_2[[i]]$f, 2:3, quantile, .75))[,1]
+    )
     n_pres <- aggregate(datasets_opt_2[[i]]$data$y, list(datasets_opt_2[[i]]$data$sid), sum)[,2]
-    plot(estimated_values ~ true_values, main = paste("Optimum =", range_opt[i]),
+    plot(estimated_values$median ~ true_values, main = paste("Optimum =", range_opt[i]),
          pch = 19, col = "#0c5094", xlim = c(0, 40))
+    arrows(x0 = true_values, y0 = estimated_values$q_025, x1 = true_values, y1 = estimated_values$q_075, 
+       angle = 90, code = 3, length = 0.05, col = "black", lwd = 2)
     abline(v = c(5, 30), lty = 2)
-    abline(lm(estimated_values ~ true_values), col = "grey50")
-    text(x = true_values, y = estimated_values+1, labels = n_pres, cex = 1.5)
+    abline(lm(estimated_values$median ~ true_values), col = "grey50")
+    text(x = true_values+1, y = estimated_values$median+1, labels = n_pres, cex = 1.5, col = "grey80")
 }
 
 # Try with equal number of presences and now with a fixed opt, but varying maximum covariance
