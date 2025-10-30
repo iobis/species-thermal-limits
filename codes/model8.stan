@@ -40,8 +40,8 @@ transformed parameters {
     //matrix[N, N] K = cov_exp_quad(x, 1.0, rho);
     matrix[N,N] K = cov_GPL1(M,sigma,rho,delta);
     matrix[N,N] L_K = cholesky_decompose(K);
-    f = L_K * eta * diag_pre_multiply(tau, L_Omega)';
-    for (i in 1:D) f[,i] = f[,i] + alpha[i];
+    f = L_K * eta * diag_pre_multiply(tau, L_Omega)'; // offsets
+    for (i in 1:D) f[,i] = f[,i] + alpha[i]; // alpha = means for each param
   }
 }
 model {

@@ -1,0 +1,98 @@
+---
+title: Partial pooling tests
+format:
+  html:
+    embed-resources: true
+---
+
+## Simulate dataset
+
+We start by simulating the data. We assume there is a global thermal 'optimum' for the community described by $\mu_{\text{tmu}}$ (global mean) and $\sigma_{\text{tmu}}$ (SD for the global mean). From this we obtain the thermal optimum for each specues using:
+
+`tmu <- round(rnorm(n_sp, mu_tmu, sigma_tmu), 1)`
+
+Being `n_sp` the number of species.
+
+Likewise, the global thermal range for the community is described by $\mu_{\text{tmu}}$ and $\sigma_{\text{tsd}}$, and sampled by:
+
+`tsd <- round(abs(rnorm(n_sp, mu_tsd, sigma_tsd)), 1)`
+
+That way we obtain `tmu` and `tsd` for each species which is under a global parameter. Below an example with 5 species:
+
+``` {r}
+#| echo: false
+n_sp = 5               # Number of species
+n_pts = 100                    # Number of points per species
+mu_tmu = 20                    # Global mean for tmu
+sigma_tmu = 3                  # Global sd for tmu
+mu_tsd = 5                     # Global mean for tsd
+sigma_tsd = 1                  # Global sd for tsd 
+
+tmu <- round(rnorm(n_sp, mu_tmu, sigma_tmu), 1)
+tsd <- round(abs(rnorm(n_sp, mu_tsd, sigma_tsd)), 1)
+
+cols <- c("purple", "blue", "red", "orange", "darkgreen")
+plot(dnorm(seq(5,35), mu_tmu, mu_tsd), type = "l", ylim = c(0,0.15), xlab = "Temperature", ylab = "density", lty = 2, lwd=2)
+for (i in 1:5) lines(dnorm(seq(1,30), tmu[i], tsd[i]), col = cols[i])
+legend("topright",
+       legend = "Global",
+       col = "black",
+       lty = 2)
+```
+
+Once we have the `tmu` and `tsd` for each species, we sample a range of sea surface temperature (simulating sites) using a normal distribution with mean = `tmu` and sd = `tsd` for each species. _Note: this is something we might want to change, to have the SST simulated as a whole, considering a range of temperatures, and not per species._
+
+```{r}
+#| code-fold: true
+#| eval: false
+
+n_sp = n_species               # Number of species
+n_pts = 100                    # Number of points per species
+N = n_pts * n_species          # Number of surveys
+p = rbeta(1, 2, 2)             # Detection probability
+mu_tmu = 20                    # Global mean for tmu
+sigma_tmu = 3                  # Global sd for tmu
+mu_tsd = 5                     # Global mean for tsd
+sigma_tsd = 1                  # Global sd for tsd 
+tomax = rbeta(n_species, 5, 1) # Max occupancy prob per species (variable in this version)
+perc_sst_inc = 0               # Enable to increase the environmental "area" by a certain amount
+
+tmu <- round(rnorm(n_sp, mu_tmu, sigma_tmu), 1)
+tsd <- round(abs(rnorm(n_sp, mu_tsd, sigma_tsd)), 1)
+if (length(tomax) == 1) {
+    tomax <- rep(tomax, n_sp)
+}
+# Species IDs
+sid <- rep(seq_len(n_sp), each = N / n_sp)
+
+# Simulate SST for each survey
+if (site_min != -Inf || site_max != Inf) {
+    sst <- truncnorm::rtruncnorm(n = N, a = site_min, b = site_max, mean = tmu[sid], sd = tsd[sid])
+} else {
+    sst <- rnorm(N, mean = tmu[sid], sd = (tsd[sid] + (tsd[sid] * perc_sst_inc)))
+}
+sst <- rnorm(N, mean = mu_tmu, sd = mu_tsd)
+
+# Calculate occupancy probability (Gaussian suitability * tomax)
+q <- exp(-0.5 * ((sst - tmu[sid]) / tsd[sid])^2) * tomax[sid]
+
+# Simulate detections
+y <- numeric(N)
+occupancy <- numeric(N)
+for (i in seq_len(N)) {
+    prob_occupied <- q[i] # Probability of occupancy given suitability
+    occupancy[i] <- prob_occupied
+    # Detected if occupied
+    # prob_detected <- prob_occupied #presence is always true, otherwise use next line
+    # prob_detected <- prob_occupied * p
+    # Absence or undetected
+    prob_absent <- (1 - prob_occupied) + prob_occupied * (1 - p)
+    y[i] <- sample(c(1, 0), size = 1, prob = c(prob_occupied * p, prob_absent))
+}
+
+# Create dataset
+dataset <- data.frame(sid = sid, sst = sst, y = y, prob_occ = occupancy)
+#aggregate(dataset$y, list(dataset$sid), table) # to check
+```
+
+## Test model with no partial pooling
