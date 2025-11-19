@@ -187,314 +187,206 @@ for (i in seq_along(datasets_rho)) {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Normal conditions ------
-# We pass a fixed value for tomax, since the model 1 does not account for that
-# By passing N=1000 and n_sp = 10 we are creating species with 100 records
-dataset_1 <- sim_dataset_phylo(
-    N = n_pts * n_species,                       # Number of surveys
-    n_sp = n_species,                            # Number of species
-    p = rbeta(1, 2, 2),                          # Detection probability
-    mu_tmu = 20,                                 # Global mean for tmu
-    sigma_tmu = 3,                               # Global sd for tmu
-    mu_tsd = 5,                                  # Global mean for tsd
-    sigma_tsd = 1,                               # Global sd for tsd 
-    tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
-    site_min = -Inf,                             # Minimum of site (for truncation)
-    site_max = Inf                               # Maximum of site (for truncation)
-)
-
-get_dataset_stats(dataset_1)
-
-# Run test 1
-m1 <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = dataset_1, rstan_out = FALSE)
-
-precis(m1, 2)
-m1_results <- extract_precis(m1, dataset_1, transform = T, change_names = T)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-with(m1_results[m1_results$what == "tmu",],
-     plot(expected, mean, pch = 19, col = "#0c76c2",
-          xlab = "Expected", ylab = "Predicted",
-          xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
-abline(v = 20, h = 20, lty = 2)
-summary(with(m1_results[m1_results$what == "tmu",], lm(expected ~ mean)))
-
-with(m1_results[m1_results$what == "tomax",],
-     plot(expected, mean, pch = 19, col = "#0c76c2",
-          xlab = "Expected", ylab = "Predicted", main = "tomax",
-          xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
-summary(with(m1_results[m1_results$what == "tomax",], lm(expected ~ mean)))
-
-with(m1_results[m1_results$what == "tmu",],
-     plot(y = delta, x = dataset_1$tmu, xlab = "tmu", ylab = "Delta", pch = 19))
-abline(h = 0, lty = 2)
-abline(v = 20, lty = 2, col = "blue")
-
-# Compare with model 5
-m1_vs_5 <- cstan(file = "codes/model5.stan", data = m1_data, rstan_out = FALSE)
-
-precis(m1_vs_5, 2)
-m1_vs_5_results <- extract_precis(m1_vs_5, dataset_1, transform = T, change_names = T)
-
-# Mean
-tmu_m1 <- m1_results$mean[m1_results$what == "tmu"]
-tmu_m1_vs_5 <- m1_vs_5_results$mean[m1_vs_5_results$what == "tmu"]
-d1_n_presence <- aggregate(dataset_1$dataset$y, list(dataset_1$dataset$sid), sum)[,2]
-
-plot(tmu_m1[order(d1_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m1, tmu_m1_vs_5)))
-points(tmu_m1_vs_5[order(d1_n_presence)], col = "#005e99")
-abline(h = dataset_1$mu_tmu, lty = 2)
-legend("topright",
-       legend = c("Model 7", "Model 5", "Global mu"),
-       col = c("#005e99", "#005e99", "black"),
-       pch = c(19, 1, NA),
-       lty = c(NA, NA, 2))
-
-# Delta
-tmu_m1 <- m1_results$delta[m1_results$what == "tmu"]
-tmu_m1_vs_5 <- m1_vs_5_results$delta[m1_vs_5_results$what == "tmu"]
-
-plot(tmu_m1[order(d1_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m1, tmu_m1_vs_5)))
-points(tmu_m1_vs_5[order(d1_n_presence)], col = "#005e99")
-abline(h = 0, lty = 2)
-legend("topright",
-       legend = c("Model 7", "Model 5"),
-       col = c("#005e99", "#005e99"),
-       pch = c(19, 1))
-
-
-# Extreme conditions - truncated ------
-dataset_2 <- sim_dataset(
-    N = n_pts * n_species,                       # Number of surveys
-    n_sp = n_species,                            # Number of species
-    p = rbeta(1, 2, 2),                          # Detection probability
-    mu_tmu = 20,                                 # Global mean for tmu
-    sigma_tmu = 3,                               # Global sd for tmu
-    mu_tsd = 5,                                  # Global mean for tsd
-    sigma_tsd = 1,                               # Global sd for tsd 
-    tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
-    site_min = -Inf,                             # Minimum of site (for truncation)
-    site_max = 26                                # Maximum of site (for truncation)
-)
-
-get_dataset_stats(dataset_2)
-
-# Run test 2
-m2_data <- prepare_data_stan(dataset_2)
-m2 <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = m2_data, rstan_out = FALSE)
-
-precis(m2, 2)
-m2_results <- extract_precis(m2, dataset_2, transform = T, change_names = T)
-
-with(m2_results[m2_results$what == "tmu",],
-     plot(expected, mean, pch = 19, col = "#0c76c2",
-          xlab = "Expected", ylab = "Predicted",
-          xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
-abline(v = 20, h = 20, lty = 2)
-summary(with(m2_results[m2_results$what == "tmu",], lm(expected ~ mean)))
-
-# Compare with model 5
-m2_vs_5 <- cstan(file = "codes/model5.stan", data = m2_data, rstan_out = FALSE)
-
-precis(m2_vs_5, 2)
-m2_vs_5_results <- extract_precis(m2_vs_5, dataset_2, transform = T, change_names = T)
-
-# Mean
-tmu_m2 <- m2_results$mean[m2_results$what == "tmu"]
-tmu_m2_vs_5 <- m2_vs_5_results$mean[m2_vs_5_results$what == "tmu"]
-d2_n_presence <- aggregate(dataset_2$dataset$y, list(dataset_2$dataset$sid), sum)[,2]
-
-plot(tmu_m2[order(d2_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m2, tmu_m2_vs_5)))
-points(tmu_m2_vs_5[order(d2_n_presence)], col = "#005e99")
-abline(h = dataset_2$mu_tmu, lty = 2)
-legend("topright",
-       legend = c("Model 7", "Model 5", "Global mu"),
-       col = c("#005e99", "#005e99", "black"),
-       pch = c(19, 1, NA),
-       lty = c(NA, NA, 2))
-
-# Delta
-tmu_m2 <- m2_results$delta[m2_results$what == "tmu"]
-tmu_m2_vs_5 <- m2_vs_5_results$delta[m2_vs_5_results$what == "tmu"]
-
-plot(tmu_m2[order(d2_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m2, tmu_m2_vs_5)))
-points(tmu_m2_vs_5[order(d2_n_presence)], col = "#005e99")
-abline(h = 0, lty = 2)
-legend("topright",
-       legend = c("Model 7", "Model 5"),
-       col = c("#005e99", "#005e99"),
-       pch = c(19, 1))
-
-
-# Varying number of absences ------
-# We pass a fixed value for tomax, since the model 1 does not account for that
-# By passing N=1000 and n_sp = 10 we are creating species with 100 records
-dataset_3 <- sim_dataset(
-    N = n_pts * n_species,                       # Number of surveys
-    n_sp = n_species,                            # Number of species
-    p = rbeta(1, 2, 2),                          # Detection probability
-    mu_tmu = 20,                                 # Global mean for tmu
-    sigma_tmu = 3,                               # Global sd for tmu
-    mu_tsd = 5,                                  # Global mean for tsd
-    sigma_tsd = 1,                               # Global sd for tsd 
-    tomax = rbeta(n_species, 5, 1),              # Max occupancy prob per species (variable in this version)
-    site_min = -Inf,                             # Minimum of site (for truncation)
-    site_max = Inf,                              # Maximum of site (for truncation)
-    n_presence = 50,                             # Number of presences
-    n_absence = 50                               # Number of absences
-)
-
-get_dataset_stats(dataset_3)
-
-# Run test 3
-n_abs <- seq(50, 0, -5)
-results_test3 <- vector("list", length(n_abs))
-stan_data <- vector("list", length(n_abs))
-dataset_mod <- dataset_3
-for (i in seq_along(n_abs)) {
-    message("\nRunning ", i, " out of ", length(n_abs), "\n")
-    groups <- split(dataset_mod$dataset, dataset_mod$dataset$sid)
-    groups <- lapply(groups, \(x){
-        p <- x[x$y == 1,]
-        a <- x[x$y == 0,]
-        if (nrow(a) > n_abs[i]) {
-            a <- a[sample(nrow(a), n_abs[i]), ]
-        }
-        rbind(p, a)
-    })
-    dataset_mod$dataset <- as.data.frame(do.call("rbind", groups))
-    m3_data <- prepare_data_stan(dataset_mod)
-    stan_data[[i]] <- m3_data
-    m3 <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = m3_data, rstan_out = FALSE)
-
-    results_test3[[i]] <- extract_precis(m3, dataset_3, transform = T, change_names = T)
-}
-
-par(mfrow = c(3, 4))
-for (i in seq_along(results_test3)) {
-    l <- with(results_test3[[i]][results_test3[[i]]$what == "tmu",], lm(expected ~ mean))
-    with(results_test3[[i]][results_test3[[i]]$what == "tmu",],
-     plot(expected, mean, pch = 19, col = "#0c76c2",
-          xlab = "Expected", ylab = "Predicted",
-          xlim = range(c(mean, expected)), ylim = range(c(mean, expected)),
-          main = paste0(n_abs[i], " - rsq: ", round(summary(l)$adj.r.squared, 2))))
-    abline(v = 20, h = 20, lty = 2)
-}
-
-# Compare with model 5
-results_test3_m5 <- vector("list", length(stan_data))
-for (i in seq_along(stan_data)) {
-    m_temp <- cstan(file = "codes/model5.stan", data = stan_data[[i]], rstan_out = FALSE)
-    results_test3_m5[[i]] <- extract_precis(m_temp, dataset_3, transform = T, change_names = T)
-}
-
-# Mean
-par(mfrow = c(3, 4))
-for (i in seq_along(stan_data)) {
-    m3_vs_5_results <- results_test3_m5[[i]]
-    m3_results <- results_test3[[i]]
-
-    tmu_m3 <- m3_results$mean[m3_results$what == "tmu"]
-    tmu_m3_vs_5 <- m3_vs_5_results$mean[m3_vs_5_results$what == "tmu"]
-    d3_n_presence <- aggregate(dataset_3$dataset$y, list(dataset_3$dataset$sid), sum)[,2]
-
-    plot(tmu_m3[order(d3_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m3, tmu_m3_vs_5)))
-    points(tmu_m3_vs_5[order(d3_n_presence)], col = "#005e99")
-    abline(h = dataset_3$mu_tmu, lty = 2)
-    legend("topright",
-        legend = c("Model 7", "Model 5", "Global mu"),
-        col = c("#005e99", "#005e99", "black"),
-        pch = c(19, 1, NA),
-        lty = c(NA, NA, 2))
-}
-
-# Delta
-par(mfrow = c(3, 4))
-for (i in seq_along(stan_data)) {
-    m3_vs_5_results <- results_test3_m5[[i]]
-    m3_results <- results_test3[[i]]
-
-    tmu_m3 <- m3_results$delta[m3_results$what == "tmu"]
-    tmu_m3_vs_5 <- m3_vs_5_results$delta[m3_vs_5_results$what == "tmu"]
-    d3_n_presence <- aggregate(dataset_3$dataset$y, list(dataset_3$dataset$sid), sum)[,2]
-
-    plot(tmu_m3[order(d3_n_presence)], pch = 19, col = "#005e99", ylim = range(c(tmu_m3, tmu_m3_vs_5)))
-    points(tmu_m3_vs_5[order(d3_n_presence)], col = "#005e99")
-    abline(h = dataset_3$mu_tmu, lty = 2)
-    legend("topright",
-        legend = c("Model 7", "Model 5", "Global mu"),
-        col = c("#005e99", "#005e99", "black"),
-        pch = c(19, 1, NA),
-        lty = c(NA, NA, 2))
-}
-
-
-# Real species ------
-fish_data <- read.csv("data/fish_pa_data.csv")
-head(fish_data)
-fish_data <- fish_data[,c("species", "sst", "presence")]
-colnames(fish_data) <- c("sid", "sst", "y")
-fish_data$species <- fish_data$sid
-fish_data$sid <- as.integer(as.factor(fish_data$sid))
-
-# Run test 4
-m4_data <- prepare_data_stan(list(dataset = fish_data))
-m4 <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = m4_data, rstan_out = FALSE)
-
-precis(m4, 2)
-m4_results <- extract_precis(m4, list(
-    dataset = fish_data,
-    tmu = aggregate(fish_data$sst[fish_data$y == 1], list(fish_data$sid[fish_data$y == 1]), mean)[,2],
-    tsd = aggregate(fish_data$sst[fish_data$y == 1], list(fish_data$sid[fish_data$y == 1]), sd)[,2],
-    p = 0, mu_tmu = NA, mu_tsd = NA, sigma_tmu = NA, sigma_tsd = NA
-), transform = T, change_names = T)
+# Try with equal number of presences, a low max_cov (ranges close to optimum)
+n_pts <- 30
+
+acanthurus <- rfishbase::species()
+acanthurus <- acanthurus[acanthurus$Genus == "Acanthurus",]
+
+acnth_estimates <- rfishbase::estimate()
+acnth_estimates <- acnth_estimates[acnth_estimates$SpecCode %in% acanthurus$SpecCode,]
+
+acnth_pref <- na.omit(acnth_estimates$TempPrefMean)
+acnth_pref_m <- median(acnth_pref)
+acnth_pref_sd <- sd(acnth_pref)
+
+opt_t <- acnth_pref_m
+max_cov <- 0.1
+n_species <- 10
+
+dataset_4 <- sim_dataset_phylo(
+        N = n_pts * n_species,                       # Number of surveys
+        n_sp = n_species,                            # Number of species
+        p = 0.8, 
+        global_optimum = log(opt_t),
+        max_cov = max_cov,
+        rho_val = 1,
+        equal_n_pres = TRUE
+    )
+m <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = dataset_4$data, rstan_out = FALSE)
+results_4 <- extract.samples(m)
 
 par(mfrow = c(1,1))
-with(m4_results[m4_results$what == "tmu",],
-     plot(expected, mean, pch = 19, col = "#0c76c2",
-          xlab = "Expected", ylab = "Predicted",
-          xlim = range(c(mean, expected)), ylim = range(c(mean, expected))))
-abline(v = 20, h = 20, lty = 2)
-summary(with(m4_results[m4_results$what == "tmu",], lm(expected ~ mean)))
+true_values <- exp(dataset_4$raw$f[, 1])
+estimated_values <- data.frame(
+    q_025 = exp(apply(results_4$f, 2:3, quantile, .25))[,1],
+    median = exp(apply(results_4$f, 2:3, median)[,1]),
+    q_075 = exp(apply(results_4$f, 2:3, quantile, .75))[,1]
+)
+n_pres <- aggregate(dataset_4$data$y, list(dataset_4$data$sid), sum)[,2]
+plot(estimated_values$median ~ true_values, main = paste("Optimum =", opt_t, "- equal N"),
+        pch = 19, col = "#0c5094", xlim = c(15, 31), ylim = c(15, 31))
+arrows(x0 = true_values, y0 = estimated_values$q_025, x1 = true_values, y1 = estimated_values$q_075, 
+    angle = 90, code = 3, length = 0.05, col = "black", lwd = 2)
+#abline(v = c(5, 30), lty = 2)
+abline(lm(estimated_values$median ~ true_values), col = "grey50")
+text(x = true_values+1, y = estimated_values$median+1, labels = n_pres, cex = 1.5, col = "grey80")
 
 
 
 
-install.packages("fishtree")
-library(fishtree)
-library(ape)
-phy <- fishtree_phylogeny(rank = "Acanthuridae")
-phy
-par(mfrow=c(2, 1))
-plot(phy, show.tip.label = FALSE)
-ltt.plot(phy)
+
+#### New tests 6 Nov
+opt_t <- 25
+n_species <- 10
+
+# Test 1 - Increasing max covariance (the higher, the higher the spread)
+max_cov <- seq(0.1, 2.1, by = 0.4)
+
+max_cov_results <- max_cov_datasets <- vector("list", length(max_cov))
+
+for (i in seq_along(max_cov)) {
+    message("\nFitting model ", i, " out of ", length(max_cov), " ============\n\n")
+    max_cov_datasets[[i]] <- sim_dataset_phylo(
+        N = n_pts * n_species,                       # Number of surveys
+        n_sp = n_species,                            # Number of species
+        p = 0.8, 
+        global_optimum = log(opt_t),
+        max_cov = max_cov[i],
+        rho_val = 1,
+        equal_n_pres = TRUE
+    )
+    m <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = max_cov_datasets[[i]]$data, rstan_out = FALSE)
+    max_cov_results[[i]] <- extract.samples(m)
+}
+
+par(mfrow = c(2,3))
+for (i in seq_along(max_cov_datasets)) {
+    true_values <- exp(max_cov_datasets[[i]]$raw$f[, 1])
+    estimated_values <- data.frame(
+        q_025 = exp(apply(max_cov_results[[i]]$f, 2:3, quantile, .25))[,1],
+        median = exp(apply(max_cov_results[[i]]$f, 2:3, median)[,1]),
+        q_075 = exp(apply(max_cov_results[[i]]$f, 2:3, quantile, .75))[,1]
+    )
+    n_pres <- aggregate(max_cov_datasets[[i]]$data$y, list(max_cov_datasets[[i]]$data$sid), sum)[,2]
+    plot(estimated_values$median ~ true_values, 
+         main = paste("Maximum covariance =", max_cov[i], "- equal N - optimum =", opt_t),
+         pch = 19, col = "#0c5094")#, xlim = c(10, 40), ylim = c(10, 40))
+    arrows(x0 = true_values, y0 = estimated_values$q_025, x1 = true_values, y1 = estimated_values$q_075, 
+        angle = 90, code = 3, length = 0.05, col = "black", lwd = 2)
+    #abline(v = c(5, 30), lty = 2)
+    abline(lm(estimated_values$median ~ true_values), col = "grey50")
+    text(x = true_values+1, y = estimated_values$median+1, labels = n_pres, cex = 1.5, col = "grey80")
+}
+
+
+# Test 2 - Increasing number of points
+max_cov <- 0.1
+opt_t <- 25
+n_species <- 10
+
+records <- seq(30, 280, by = 50)
+records_results <- records_datasets <- vector("list", length(records))
+
+for (i in seq_along(records)) {
+    message("\nFitting model ", i, " out of ", length(records), " ============\n\n")
+    records_datasets[[i]] <- sim_dataset_phylo(
+        N = records[i] * n_species,                       # Number of surveys
+        n_sp = n_species,                            # Number of species
+        p = 0.8, 
+        global_optimum = log(opt_t),
+        max_cov = max_cov,
+        rho_val = 1,
+        equal_n_pres = TRUE
+    )
+    m <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = records_datasets[[i]]$data, rstan_out = FALSE)
+    records_results[[i]] <- extract.samples(m)
+}
+
+par(mfrow = c(2,3))
+for (i in seq_along(records_datasets)) {
+    true_values <- exp(records_datasets[[i]]$raw$f[, 1])
+    estimated_values <- data.frame(
+        q_025 = exp(apply(records_results[[i]]$f, 2:3, quantile, .25))[,1],
+        median = exp(apply(records_results[[i]]$f, 2:3, median)[,1]),
+        q_075 = exp(apply(records_results[[i]]$f, 2:3, quantile, .75))[,1]
+    )
+    n_pres <- aggregate(records_datasets[[i]]$data$y, list(records_datasets[[i]]$data$sid), sum)[,2]
+    plot(estimated_values$median ~ true_values, 
+         main = paste("N records =", records[i], "- equal N - optimum =", opt_t),
+         pch = 19, col = "#0c5094")#, xlim = c(10, 40), ylim = c(10, 40))
+    arrows(x0 = true_values, y0 = estimated_values$q_025, x1 = true_values, y1 = estimated_values$q_075, 
+        angle = 90, code = 3, length = 0.05, col = "black", lwd = 2)
+    #abline(v = c(5, 30), lty = 2)
+    abline(lm(estimated_values$median ~ true_values), col = "grey50")
+    text(x = true_values+1, y = estimated_values$median+1, labels = n_pres, cex = 1.5, col = "grey80")
+}
+
+
+
+
+
+
+
+
+
+# Test 3 - Different amounts of presence/absence
+max_cov <- 0.1
+opt_t <- 25
+n_species <- 10
+
+# Create a dataset with a large number of records, which will be subsampled
+pa_dataset <- sim_dataset_phylo(
+    N = 200 * n_species,
+    n_sp = n_species,
+    p = 0.8, 
+    global_optimum = log(opt_t),
+    max_cov = max_cov,
+    rho_val = 1,
+    equal_n_pres = TRUE
+)
+
+ab_n <- seq(60, 0, -10)
+pr_n <- 60
+
+pa_sub_datasets <- lapply(ab_n, \(n) {
+    edited_ds <- pa_dataset
+    edited_ds$data |>
+        dplyr::group_by()
+})
+
+pa_results <- vector("list", length(pa_sub_datasets))
+
+for (i in seq_along(records)) {
+    message("\nFitting model ", i, " out of ", length(records), " ============\n\n")
+    records_datasets[[i]] <- sim_dataset_phylo(
+        N = records[i] * n_species,                       # Number of surveys
+        n_sp = n_species,                            # Number of species
+        p = 0.8, 
+        global_optimum = log(opt_t),
+        max_cov = max_cov,
+        rho_val = 1,
+        equal_n_pres = TRUE
+    )
+    m <- cstan(file = paste0("codes/model", stan_model_version, ".stan"), data = records_datasets[[i]]$data, rstan_out = FALSE)
+    records_results[[i]] <- extract.samples(m)
+}
+
+par(mfrow = c(2,3))
+for (i in seq_along(records_datasets)) {
+    true_values <- exp(records_datasets[[i]]$raw$f[, 1])
+    estimated_values <- data.frame(
+        q_025 = exp(apply(records_results[[i]]$f, 2:3, quantile, .25))[,1],
+        median = exp(apply(records_results[[i]]$f, 2:3, median)[,1]),
+        q_075 = exp(apply(records_results[[i]]$f, 2:3, quantile, .75))[,1]
+    )
+    n_pres <- aggregate(records_datasets[[i]]$data$y, list(records_datasets[[i]]$data$sid), sum)[,2]
+    plot(estimated_values$median ~ true_values, 
+         main = paste("N records =", records[i], "- equal N - optimum =", opt_t),
+         pch = 19, col = "#0c5094")#, xlim = c(10, 40), ylim = c(10, 40))
+    arrows(x0 = true_values, y0 = estimated_values$q_025, x1 = true_values, y1 = estimated_values$q_075, 
+        angle = 90, code = 3, length = 0.05, col = "black", lwd = 2)
+    #abline(v = c(5, 30), lty = 2)
+    abline(lm(estimated_values$median ~ true_values), col = "grey50")
+    text(x = true_values+1, y = estimated_values$median+1, labels = n_pres, cex = 1.5, col = "grey80")
+}
