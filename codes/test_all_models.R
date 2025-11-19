@@ -191,4 +191,4 @@ ggplot(results_red) +
     facet_wrap(~model) +
     xlab("Expected") + ylab("Estimated") + 
     ggtitle("Reduced data",
-            glue::glue("N pres = {n_pts/2}, N abs = {n_pts/2}, N species = {n_species}"))
+            glue::glue("Max points per species = 30, N species = {n_species}"))
